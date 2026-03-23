@@ -1,16 +1,28 @@
+// app/(tabs)/_layout.tsx
 import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
-import { StyleSheet, View } from 'react-native';
+import { Platform, StyleSheet, TouchableOpacity, View } from 'react-native';
 
 export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
-        headerShown: false, // Esconde o cabeçalho padrão
-        tabBarShowLabel: false, // Esconde os textos das abas para um visual mais limpo e moderno
-        tabBarActiveTintColor: '#3b82f6', // Azul moderno para o ícone ativo
-        tabBarInactiveTintColor: '#9ca3af', // Cinza para os inativos
+        headerShown: false,
+        tabBarShowLabel: false,
+        tabBarActiveTintColor: '#3b82f6',
+        tabBarInactiveTintColor: '#9ca3af',
         tabBarStyle: styles.floatingTabBar,
+        
+        // Mantém a nossa correção para o botão não desaparecer:
+        tabBarButton: (props) => {
+          const { delayLongPress, ref, ...restoDasProps } = props as any;
+          return (
+            <TouchableOpacity 
+              {...restoDasProps} 
+              activeOpacity={0.8} 
+            />
+          );
+        }
       }}>
       
       {/* ABA 1: DASHBOARD (Home) */}
@@ -19,7 +31,7 @@ export default function TabLayout() {
         options={{
           title: 'Início',
           tabBarIcon: ({ color, focused }) => (
-            <View style={focused ? styles.iconFocused : null}>
+            <View style={[styles.iconContainer, focused && styles.iconFocused]}>
               <Ionicons name={focused ? 'home' : 'home-outline'} size={24} color={color} />
             </View>
           ),
@@ -32,7 +44,7 @@ export default function TabLayout() {
         options={{
           title: 'Contas',
           tabBarIcon: ({ color, focused }) => (
-            <View style={focused ? styles.iconFocused : null}>
+            <View style={[styles.iconContainer, focused && styles.iconFocused]}>
               <Ionicons name={focused ? 'wallet' : 'wallet-outline'} size={24} color={color} />
             </View>
           ),
@@ -45,7 +57,7 @@ export default function TabLayout() {
         options={{
           title: 'Perfil',
           tabBarIcon: ({ color, focused }) => (
-            <View style={focused ? styles.iconFocused : null}>
+            <View style={[styles.iconContainer, focused && styles.iconFocused]}>
               <Ionicons name={focused ? 'person' : 'person-outline'} size={24} color={color} />
             </View>
           ),
@@ -58,25 +70,31 @@ export default function TabLayout() {
 const styles = StyleSheet.create({
   floatingTabBar: {
     position: 'absolute',
-    bottom: 24, // Distância do fundo da tela
-    left: 24,   // Margem lateral
-    right: 24,  // Margem lateral
-    elevation: 8, // Sombra no Android
-    shadowColor: '#000', // Sombra no iOS
+    bottom: Platform.OS === 'ios' ? 32 : 24, // Sobe mais um pouquinho no iOS
+    marginRight: 16,
+    marginLeft: 16,
+    left: 0,
+    right: 0,
+    elevation: 8, 
+    shadowColor: '#000', 
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
     shadowRadius: 10,
     backgroundColor: '#ffffff',
-    borderRadius: 32, // Bordas bem arredondadas
-    height: 64,
-    borderTopWidth: 0, // Remove a linha feia padrão que fica em cima da tab
-    alignItems: 'center',
+    borderRadius: 32, // Formato de pílula
+    height: 50, // Altura perfeita
+    borderTopWidth: 0,
+    paddingBottom: 0, // 👈 O SEGREDO AQUI: Impede o celular de empurrar o ícone
+  },
+  iconContainer: {
+    width: 40, // Tamanho fixo para garantir que o círculo fique perfeito
+    height: 40,
+    borderRadius: 24,
     justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 8, // Centraliza perfeitamente no meio da barra
   },
   iconFocused: {
-    // Um pequeno detalhe visual extra quando o ícone está ativo
-    backgroundColor: '#eff6ff', // Azul bem clarinho
-    padding: 10,
-    borderRadius: 20,
+    backgroundColor: '#eff6ff', 
   }
 });

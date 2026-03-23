@@ -7,16 +7,40 @@ import { useAccounts } from '../hooks/useAccounts';
 import { salvarTransacaoNoFirebase } from '../services/firebase/firestore';
 
 export default function AddTransactionModal() {
-    // Função para formatar o dinheiro em tempo real
+  // Puxa as tabelas reais do Firebase
+  const { contas } = useAccounts();
+  
+  // --- ESTADOS DO FORMULÁRIO ---
+  const [tipo, setTipo] = useState<'DESPESA' | 'RECEITA'>('DESPESA');
+  const [valor, setValor] = useState('');
+  const [descricao, setDescricao] = useState('');
+  const [dataPagamento, setDataPagamento] = useState(''); // Novo estado para a data
+  
+  const [contaSelecionada, setContaSelecionada] = useState('');
+  const [tagSelecionada, setTagSelecionada] = useState('🛒 Supermercado');
+  
+  // Regras de negócio
+  const [isParcelado, setIsParcelado] = useState(false);
+  const [qtdParcelas, setQtdParcelas] = useState('2');
+  const [isTerceiro, setIsTerceiro] = useState(false);
+  const [nomeTerceiro, setNomeTerceiro] = useState('');
+  
+  const [isLoading, setIsLoading] = useState(false);
+
+  const tagsPadrao = ['🛒 Supermercado', '🍔 Lazer', '🏠 Casa', '🚗 Transporte', '🏥 Saúde', '🛍️ Compras'];
+
+  // Seleciona a primeira conta automaticamente ao carregar
+  useEffect(() => {
+    if (contas.length > 0 && contaSelecionada === '') {
+      setContaSelecionada(contas[0].nome);
+    }
+  }, [contas]);
+
+  // --- MÁSCARAS E FORMATAÇÕES ---
   const handleValorChange = (texto: string) => {
-    // 1. Remove tudo o que não for número
     const apenasNumeros = texto.replace(/\D/g, '');
-    
-    // 2. Transforma em número decimal (divide por 100)
     const valorDecimal = Number(apenasNumeros) / 100;
     
-    // 3. Formata para o padrão BRL (Ex: 1.500,00)
-    // Usamos string pura para evitar bugs no teclado do telemóvel
     if (apenasNumeros === '') {
       setValor('');
       return;
@@ -29,72 +53,54 @@ export default function AddTransactionModal() {
 
     setValor(valorFormatado);
   };
-  // Estados do nosso formulário
-  const [tipo, setTipo] = useState<'DESPESA' | 'RECEITA'>('DESPESA');
-  const [valor, setValor] = useState('');
-  const [descricao, setDescricao] = useState('');
 
-  const [isLoading, setIsLoading] = useState(false); // <--- COLOQUE ESTA LINHA AQUI!
-  
-  // Regras de negócio
-  const [isParcelado, setIsParcelado] = useState(false);
-  const [qtdParcelas, setQtdParcelas] = useState('2');
-  
-  const [isTerceiro, setIsTerceiro] = useState(false);
-  const [nomeTerceiro, setNomeTerceiro] = useState('');
+  const handleDataChange = (texto: string) => {
+    let v = texto.replace(/\D/g, '');
+    if (v.length > 2) v = v.replace(/^(\d{2})(\d)/, '$1/$2');
+    if (v.length > 5) v = v.replace(/^(\d{2})\/(\d{2})(\d)/, '$1/$2/$3');
+    setDataPagamento(v.substring(0, 10));
+  };
 
-  // Novos estados para seleção
-  // Puxa as tabelas reais do Firebase
-  const { contas } = useAccounts();
-  
-  // O estado começa vazio
-  const [contaSelecionada, setContaSelecionada] = useState('');
-
-  // Efeito inteligente: Assim que carregar as tabelas, seleciona a primeira automaticamente
-  useEffect(() => {
-    if (contas.length > 0 && contaSelecionada === '') {
-      setContaSelecionada(contas[0].nome);
-    }
-  }, [contas]);
-
-  const [tagSelecionada, setTagSelecionada] = useState('🛒 Supermercado');
-  const tagsPadrao = ['🛒 Supermercado', '🍔 Lazer', '🏠 Casa', '🚗 Transporte', '🏥 Saúde', '🛍️ Compras'];
-
+  // --- FUNÇÃO SALVAR ---
   const handleSalvar = async () => {
-  // Validação simples
-  if (!valor || !descricao) {
-    Alert.alert('Atenção', 'Preencha o valor e a descrição antes de salvar.');
-    return;
-  }
+    if (!valor || !descricao) {
+      Alert.alert('Atenção', 'Preencha o valor e a descrição antes de salvar.');
+      return;
+    }
 
-  setIsLoading(true);
+    if (dataPagamento && dataPagamento.length > 0 && dataPagamento.length < 10) {
+      Alert.alert('Atenção', 'Digite uma data válida no formato DD/MM/AAAA ou deixe em branco.');
+      return;
+    }
 
-  // Chama a nossa função do backend
-  const resultado = await salvarTransacaoNoFirebase({
-    tipo,
-    valorFormatado: valor,
-    descricao,
-    contaSelecionada,
-    tagSelecionada,
-    isParcelado: tipo === 'DESPESA' ? isParcelado : false,
-    qtdParcelas,
-    isTerceiro: tipo === 'DESPESA' ? isTerceiro : false,
-    nomeTerceiro
-  });
+    setIsLoading(true);
 
-  setIsLoading(false);
+    const resultado = await salvarTransacaoNoFirebase({
+      tipo,
+      valorFormatado: valor,
+      descricao,
+      contaSelecionada,
+      tagSelecionada,
+      isParcelado: tipo === 'DESPESA' ? isParcelado : false,
+      qtdParcelas,
+      isTerceiro: tipo === 'DESPESA' ? isTerceiro : false,
+      nomeTerceiro,
+      dataPagamento // Enviamos a data para o backend
+    });
 
-  if (resultado.sucesso) {
-    Alert.alert('Sucesso', 'Transação salva com sucesso!');
-    router.back(); // Fecha o modal e volta pro Dashboard
-  } else {
-    Alert.alert('Erro', 'Ocorreu um problema ao salvar. Tente novamente.');
-  }
-};
+    setIsLoading(false);
+
+    if (resultado.sucesso) {
+      Alert.alert('Sucesso', 'Transação salva com sucesso!');
+      router.back();
+    } else {
+      Alert.alert('Erro', 'Ocorreu um problema ao salvar. Tente novamente.');
+    }
+  };
 
   return (
     <View style={styles.container}>
-      {/* CABEÇALHO DO MODAL */}
+      {/* CABEÇALHO */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.closeBtn}>
           <Ionicons name="close" size={24} color="#6b7280" />
@@ -107,42 +113,34 @@ export default function AddTransactionModal() {
         
         {/* SELETOR RECEITA / DESPESA */}
         <View style={styles.typeSelector}>
-          <TouchableOpacity 
-            style={[styles.typeBtn, tipo === 'DESPESA' && styles.typeBtnDespesa]} 
-            onPress={() => setTipo('DESPESA')}
-          >
+          <TouchableOpacity style={[styles.typeBtn, tipo === 'DESPESA' && styles.typeBtnDespesa]} onPress={() => setTipo('DESPESA')}>
             <Text style={[styles.typeText, tipo === 'DESPESA' && styles.typeTextActive]}>Despesa</Text>
           </TouchableOpacity>
-          <TouchableOpacity 
-            style={[styles.typeBtn, tipo === 'RECEITA' && styles.typeBtnReceita]} 
-            onPress={() => setTipo('RECEITA')}
-          >
+          <TouchableOpacity style={[styles.typeBtn, tipo === 'RECEITA' && styles.typeBtnReceita]} onPress={() => setTipo('RECEITA')}>
             <Text style={[styles.typeText, tipo === 'RECEITA' && styles.typeTextActive]}>Receita</Text>
           </TouchableOpacity>
         </View>
 
-        {/* INPUT DE VALOR (Destacado) */}
+        {/* INPUT DE VALOR */}
         <View style={styles.amountContainer}>
           <Text style={styles.currencySymbol}>R$</Text>
           <TextInput
             style={styles.amountInput}
             placeholder="0,00"
             placeholderTextColor="#9ca3af"
-            keyboardType="numeric" // Garante que só abre o teclado de números
+            keyboardType="numeric"
             value={valor}
-            onChangeText={handleValorChange} // 👈 Aqui entra a nossa máscara
-            maxLength={15} // Evita que o número fique gigante e quebre o layout
+            onChangeText={handleValorChange}
+            maxLength={15}
           />
         </View>
 
-        {/* SELETOR DE CONTAS / CARTÕES (AGORA DINÂMICO) */}
+        {/* SELETOR DE CONTAS DINÂMICAS */}
         <View style={styles.sectionContainer}>
           <Text style={styles.label}>Conta / Tabela</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScrollView}>
             {contas.length === 0 ? (
-              <Text style={{ marginLeft: 20, color: '#9ca3af', fontStyle: 'italic' }}>
-                Nenhuma tabela encontrada. Crie uma na aba "Contas".
-              </Text>
+              <Text style={{ marginLeft: 20, color: '#9ca3af', fontStyle: 'italic' }}>Nenhuma tabela encontrada. Crie na aba "Contas".</Text>
             ) : (
               contas.map((conta) => (
                 <TouchableOpacity
@@ -150,16 +148,14 @@ export default function AddTransactionModal() {
                   style={[styles.chip, contaSelecionada === conta.nome && styles.chipSelected]}
                   onPress={() => setContaSelecionada(conta.nome)}
                 >
-                  <Text style={[styles.chipText, contaSelecionada === conta.nome && styles.chipTextSelected]}>
-                    {conta.nome}
-                  </Text>
+                  <Text style={[styles.chipText, contaSelecionada === conta.nome && styles.chipTextSelected]}>{conta.nome}</Text>
                 </TouchableOpacity>
               ))
             )}
           </ScrollView>
         </View>
 
-        {/* SELETOR DE TAGS / CATEGORIAS */}
+        {/* SELETOR DE CATEGORIAS */}
         <View style={styles.sectionContainer}>
           <Text style={styles.label}>Categoria</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScrollView}>
@@ -169,15 +165,13 @@ export default function AddTransactionModal() {
                 style={[styles.chip, tagSelecionada === tag && styles.chipSelected]}
                 onPress={() => setTagSelecionada(tag)}
               >
-                <Text style={[styles.chipText, tagSelecionada === tag && styles.chipTextSelected]}>
-                  {tag}
-                </Text>
+                <Text style={[styles.chipText, tagSelecionada === tag && styles.chipTextSelected]}>{tag}</Text>
               </TouchableOpacity>
             ))}
           </ScrollView>
         </View>
 
-        {/* CAMPOS BÁSICOS */}
+        {/* DESCRIÇÃO DA DESPESA (De volta ao seu lugar!) */}
         <View style={styles.formGroup}>
           <Text style={styles.label}>Descrição</Text>
           <TextInput
@@ -188,10 +182,22 @@ export default function AddTransactionModal() {
           />
         </View>
 
-        {/* SE SÓ FOR DESPESA, MOSTRA OPÇÕES DE CARTÃO E TERCEIROS */}
+        {/* DATA DE PAGAMENTO */}
+        <View style={styles.formGroup}>
+          <Text style={styles.label}>Data do Pagamento (Opcional)</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="DD/MM/AAAA (Deixe em branco para hoje)"
+            keyboardType="numeric"
+            maxLength={10}
+            value={dataPagamento}
+            onChangeText={handleDataChange}
+          />
+        </View>
+
+        {/* REGRAS EXTRAS SÓ PARA DESPESAS */}
         {tipo === 'DESPESA' && (
           <>
-            {/* LÓGICA DE PARCELAMENTO */}
             <View style={styles.toggleGroup}>
               <View style={styles.toggleHeader}>
                 <Text style={styles.label}>Compra Parcelada?</Text>
@@ -216,7 +222,6 @@ export default function AddTransactionModal() {
               )}
             </View>
 
-            {/* LÓGICA DE TERCEIROS */}
             <View style={styles.toggleGroup}>
               <View style={styles.toggleHeader}>
                 <Text style={styles.label}>Compra para outra pessoa?</Text>
@@ -236,7 +241,7 @@ export default function AddTransactionModal() {
                     value={nomeTerceiro}
                     onChangeText={setNomeTerceiro}
                   />
-                  <Text style={styles.helperText}>A regra 67/33 será anulada para esta compra.</Text>
+                  <Text style={styles.helperText}>A regra da tabela será ignorada, 100% irá para a aba "A Receber".</Text>
                 </View>
               )}
             </View>
@@ -248,16 +253,13 @@ export default function AddTransactionModal() {
       {/* BOTÃO SALVAR */}
       <View style={styles.footer}>
         <TouchableOpacity 
-       style={[styles.saveButton, isLoading && { opacity: 0.7 }]} 
-       onPress={handleSalvar}
-       disabled={isLoading}
-     >
-       {isLoading ? (
-         <ActivityIndicator color="#ffffff" />
-       ) : (
-         <Text style={styles.saveButtonText}>Salvar Transação</Text>
-       )}
-     </TouchableOpacity>
+          style={[styles.saveButton, isLoading && { opacity: 0.7 }]} 
+          onPress={handleSalvar} 
+          disabled={isLoading}
+          activeOpacity={0.8} // 👈 Adicione isto!
+        >
+          {isLoading ? <ActivityIndicator color="#ffffff" /> : <Text style={styles.saveButtonText}>Salvar Transação</Text>}
+        </TouchableOpacity>
       </View>
     </View>
   );

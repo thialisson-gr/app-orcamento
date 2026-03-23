@@ -2,38 +2,53 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import React from 'react';
+import React, { useState } from 'react';
 import { ActivityIndicator, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { useAccounts } from '../../hooks/useAccounts'; // 👈 Importamos as contas reais
+import { useAccounts } from '../../hooks/useAccounts';
 import { useTransactions } from '../../hooks/useTransactions';
+
+const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
 export default function DashboardScreen() {
   const { transacoes, loading: loadingTransacoes } = useTransactions();
   const { contas, loadingContas } = useAccounts();
 
-  // --- CÁLCULOS INTELIGENTES E DINÂMICOS ---
+  // --- ESTADO DO MÊS SELECIONADO ---
+  const [dataFiltro, setDataFiltro] = useState(new Date());
+  const mesAtual = dataFiltro.getMonth();
+  const anoAtual = dataFiltro.getFullYear();
+  const mesFormatado = `${MESES[mesAtual]} ${anoAtual}`;
+
+  // Funções para navegar no tempo
+  const irMesAnterior = () => setDataFiltro(new Date(anoAtual, mesAtual - 1, 1));
+  const irProximoMes = () => setDataFiltro(new Date(anoAtual, mesAtual + 1, 1));
+
+  // --- CÁLCULOS INTELIGENTES (FILTRADOS PELO MÊS) ---
   let totalDespesasConjuntas = 0;
   let suaParteConjunta = 0;
   let parteRayConjunta = 0;
-  
   let seusGastosIndividuais = 0;
   let aReceberTerceiros = 0;
   let suaReceitaTotal = 0;
 
-  // O app analisa transação por transação e consulta a regra da tabela dela
   transacoes.forEach((t) => {
+    const dataPag = new Date(t.paymentDate || t.date);
+    
+    // REGRA DE OURO: Só entra na conta se for EXATAMENTE do mês e ano que estamos olhando na tela!
+    const pertenceAoMes = dataPag.getMonth() === mesAtual && dataPag.getFullYear() === anoAtual;
+    
+    if (!pertenceAoMes) return; // Ignora tudo que não for deste mês
+
     if (t.type === 'RECEITA') {
       suaReceitaTotal += t.amount;
-      return; // Pula para a próxima transação
+      return; 
     } 
-    
-    // Se a compra foi marcada no formulário como "Para Terceiros", já vai para a dívida
+
     if (t.isForThirdParty) {
       aReceberTerceiros += t.amount;
       return;
     }
 
-    // Busca a conta real no Firebase para saber qual é a porcentagem dela
     const conta = contas.find((c) => c.nome === t.accountId);
 
     if (conta) {
@@ -41,25 +56,49 @@ export default function DashboardScreen() {
         aReceberTerceiros += t.amount;
       } else if (conta.tipo === 'COMUM') {
         totalDespesasConjuntas += t.amount;
-        // Calcula a porcentagem exata que você definiu na hora de criar a tabela!
-        suaParteConjunta += t.amount * (conta.splitRule.me / 100);
-        parteRayConjunta += t.amount * (conta.splitRule.spouse / 100);
-      } else if (conta.tipo === 'INDIVIDUAL') {
-        if (conta.dono === 'EU') {
-          seusGastosIndividuais += t.amount;
+        if (t.isPaid) {
+          suaParteConjunta += t.amount * (conta.splitRule.me / 100);
+          parteRayConjunta += t.amount * (conta.splitRule.spouse / 100);
         }
-        // Se a conta for da Ray, não soma no SEU fluxo de caixa
+      } else if (conta.tipo === 'INDIVIDUAL' && conta.dono === 'EU') {
+        if (t.isPaid) seusGastosIndividuais += t.amount; 
       }
     }
   });
 
-  // Calcula o seu fluxo de caixa final
   const suasDespesasTotais = suaParteConjunta + seusGastosIndividuais;
   const seuSaldoRestante = suaReceitaTotal - suasDespesasTotais;
-  
   const porcentagemGasta = suaReceitaTotal > 0 ? (suasDespesasTotais / suaReceitaTotal) * 100 : 0;
 
+  // --- AGRUPAR COMPRAS PARCELADAS NA LISTA (DO MÊS) ---
+  const transacoesRecentes: any[] = [];
+  const parentIdsVistos = new Set();
+
+  transacoes.forEach((t) => {
+    const dataPag = new Date(t.paymentDate || t.date);
+    const pertenceAoMes = dataPag.getMonth() === mesAtual && dataPag.getFullYear() === anoAtual;
+    if (!pertenceAoMes) return;
+
+    if (t.isInstallment && t.installmentDetails?.parentId) {
+      if (!parentIdsVistos.has(t.installmentDetails.parentId)) {
+        parentIdsVistos.add(t.installmentDetails.parentId);
+        const valorTotal = t.amount * t.installmentDetails.total;
+        const nomeLimpo = t.descricao.split(' (')[0];
+
+        transacoesRecentes.push({
+          ...t,
+          descricao: `${nomeLimpo} (Em ${t.installmentDetails.total}x)`,
+          amount: valorTotal,
+          dateParaExibir: t.purchaseDate || t.date 
+        });
+      }
+    } else {
+      transacoesRecentes.push({ ...t, dateParaExibir: t.purchaseDate || t.date });
+    }
+  });
+
   const formatarData = (dataIso: string) => {
+    if (!dataIso) return '';
     const data = new Date(dataIso);
     return data.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
   };
@@ -78,27 +117,33 @@ export default function DashboardScreen() {
       <StatusBar barStyle="dark-content" />
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         
-        {/* CABEÇALHO */}
+        {/* CABEÇALHO COM NAVEGAÇÃO DE MESES */}
         <View style={styles.header}>
           <View>
             <Text style={styles.greeting}>Olá!</Text>
             <Text style={styles.subGreeting}>Aqui está o resumo do mês.</Text>
           </View>
-          <TouchableOpacity style={styles.monthSelector}>
-            <Text style={styles.monthText}>Mês Atual</Text>
-            <Ionicons name="calendar-outline" size={16} color="#3b82f6" />
-          </TouchableOpacity>
+          
+          <View style={styles.monthSelector}>
+            <TouchableOpacity onPress={irMesAnterior} style={{ padding: 4 }}>
+              <Ionicons name="chevron-back" size={20} color="#3b82f6" />
+            </TouchableOpacity>
+            
+            <Text style={styles.monthText}>{mesFormatado}</Text>
+            
+            <TouchableOpacity onPress={irProximoMes} style={{ padding: 4 }}>
+              <Ionicons name="chevron-forward" size={20} color="#3b82f6" />
+            </TouchableOpacity>
+          </View>
         </View>
 
-        {/* CARD: SEU FLUXO DE CAIXA PESSOAL */}
+        {/* --- O RESTANTE DA TELA CONTINUA IGUAL --- */}
         <LinearGradient colors={['#1e3a8a', '#3b82f6']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.personalFlowCard}>
           <View style={styles.personalFlowHeader}>
             <Text style={styles.personalFlowTitle}>Seu Saldo Disponível</Text>
             <Ionicons name="eye-outline" size={20} color="rgba(255,255,255,0.7)" />
           </View>
-          
           <Text style={styles.personalBalance}>R$ {seuSaldoRestante.toFixed(2)}</Text>
-          
           <View style={styles.progressBarBackground}>
             <View style={[styles.progressBarFill, { width: `${Math.min(porcentagemGasta, 100)}%` }]} />
           </View>
@@ -122,11 +167,9 @@ export default function DashboardScreen() {
           </View>
         </LinearGradient>
 
-        {/* CARD DA CASA (AGORA DINÂMICO) */}
         <View style={styles.mainCard}>
-          <Text style={styles.cardTitle}>Despesas Conjuntas</Text>
+          <Text style={styles.cardTitle}>Despesas Conjuntas ({MESES[mesAtual]})</Text>
           <Text style={styles.totalAmount}>R$ {totalDespesasConjuntas.toFixed(2)}</Text>
-          
           <View style={styles.splitContainer}>
             <View style={styles.splitItem}>
               <Text style={styles.splitLabel}>Sua Parte</Text>
@@ -140,7 +183,6 @@ export default function DashboardScreen() {
           </View>
         </View>
 
-        {/* CARD DE TERCEIROS E INDIVIDUAL */}
         <View style={styles.rowCards}>
           <View style={[styles.smallCard, { backgroundColor: '#fdf2f8', marginRight: 8 }]}>
             <View style={styles.smallCardHeader}>
@@ -149,7 +191,6 @@ export default function DashboardScreen() {
             </View>
             <Text style={[styles.smallCardValue, { color: '#be185d' }]}>R$ {aReceberTerceiros.toFixed(2)}</Text>
           </View>
-          
           <View style={[styles.smallCard, { backgroundColor: '#f0f9ff' }]}>
             <View style={styles.smallCardHeader}>
                 <Text style={styles.smallCardTitle}>Individual</Text>
@@ -159,14 +200,12 @@ export default function DashboardScreen() {
           </View>
         </View>
 
-        {/* LISTA DE TRANSAÇÕES REAIS */}
         <View style={styles.transactionsSection}>
-          <Text style={styles.sectionTitle}>Transações Recentes</Text>
-          
-          {transacoes.length === 0 ? (
-            <Text style={{ color: '#6b7280', textAlign: 'center', marginTop: 20 }}>Nenhuma transação registrada ainda.</Text>
+          <Text style={styles.sectionTitle}>Transações de {MESES[mesAtual]}</Text>
+          {transacoesRecentes.length === 0 ? (
+            <Text style={{ color: '#6b7280', textAlign: 'center', marginTop: 20 }}>Nenhuma transação neste mês.</Text>
           ) : (
-            transacoes.map((item) => (
+            transacoesRecentes.map((item) => (
               <View key={item.id} style={styles.transactionItem}>
                 <View style={[styles.transactionIcon, { backgroundColor: item.type === 'RECEITA' ? '#ecfdf5' : '#f3f4f6' }]}>
                   <Ionicons name={item.type === 'RECEITA' ? "trending-up" : "cart-outline"} size={24} color={item.type === 'RECEITA' ? "#10b981" : "#4b5563"} />
@@ -179,7 +218,7 @@ export default function DashboardScreen() {
                   <Text style={[styles.transactionAmount, { color: item.type === 'RECEITA' ? '#10b981' : '#1f2937' }]}>
                       {item.type === 'RECEITA' ? '+' : ''}R$ {item.amount.toFixed(2)}
                   </Text>
-                  <Text style={styles.transactionDate}>{formatarData(item.date)}</Text>
+                  <Text style={styles.transactionDate}>{formatarData(item.dateParaExibir)}</Text>
                 </View>
               </View>
             ))
@@ -195,15 +234,14 @@ export default function DashboardScreen() {
   );
 }
 
-// Mantenha os mesmos estilos (styles) que já estavam no arquivo...
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f3f4f6' },
   scrollContent: { padding: 20, paddingBottom: 110 }, 
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24, marginTop: 50 },
   greeting: { fontSize: 26, fontWeight: 'bold', color: '#1f2937' },
   subGreeting: { fontSize: 14, color: '#6b7280', marginTop: 2 },
-  monthSelector: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, borderWidth: 1, borderColor: '#e5e7eb' },
-  monthText: { fontSize: 14, color: '#3b82f6', fontWeight: '600', marginRight: 4 },
+  monthSelector: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 20, borderWidth: 1, borderColor: '#e5e7eb' },
+  monthText: { fontSize: 14, color: '#3b82f6', fontWeight: 'bold', marginHorizontal: 8, minWidth: 100, textAlign: 'center' },
   
   personalFlowCard: { borderRadius: 24, padding: 24, marginBottom: 20, elevation: 5, shadowColor: '#1e3a8a', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.2, shadowRadius: 15 },
   personalFlowHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
