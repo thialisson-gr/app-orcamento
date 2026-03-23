@@ -28,6 +28,10 @@ export default function RootLayout() {
             headerShown: false // Deixamos false porque já fizemos nosso botão "X" personalizado na tela
           }} 
         />
+        <Stack.Screen 
+          name="add-account" 
+          options={{ presentation: 'modal', headerShown: false }} 
+        />
       </Stack>
       <StatusBar style="auto" />
     </ThemeProvider>

@@ -1,10 +1,11 @@
 // services/firebase/config.ts
-
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { initializeApp } from "firebase/app";
-import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 
-// As chaves são puxadas automaticamente do ficheiro .env
+// Importamos TUDO de dentro do auth e damos o apelido de "firebaseAuth"
+import * as firebaseAuth from "firebase/auth";
+
 const firebaseConfig = {
   apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
   authDomain: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN,
@@ -14,9 +15,13 @@ const firebaseConfig = {
   appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
 };
 
-// Inicializa o Firebase
+// Inicializa o app
 const app = initializeApp(firebaseConfig);
 
-// Inicializa e exporta os serviços que vamos usar
+// Inicializa o Banco de Dados
 export const db = getFirestore(app);
-export const auth = getAuth(app);
+
+// Forçamos o TypeScript a aceitar a função usando o "(firebaseAuth as any)"
+export const auth = firebaseAuth.initializeAuth(app, {
+  persistence: (firebaseAuth as any).getReactNativePersistence(AsyncStorage),
+});

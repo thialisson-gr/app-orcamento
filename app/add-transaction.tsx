@@ -1,8 +1,10 @@
 // app/add-transaction.tsx
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import React, { useState } from 'react';
-import { ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, Alert, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useAccounts } from '../hooks/useAccounts';
+import { salvarTransacaoNoFirebase } from '../services/firebase/firestore';
 
 export default function AddTransactionModal() {
     // Função para formatar o dinheiro em tempo real
@@ -31,6 +33,8 @@ export default function AddTransactionModal() {
   const [tipo, setTipo] = useState<'DESPESA' | 'RECEITA'>('DESPESA');
   const [valor, setValor] = useState('');
   const [descricao, setDescricao] = useState('');
+
+  const [isLoading, setIsLoading] = useState(false); // <--- COLOQUE ESTA LINHA AQUI!
   
   // Regras de negócio
   const [isParcelado, setIsParcelado] = useState(false);
@@ -40,23 +44,53 @@ export default function AddTransactionModal() {
   const [nomeTerceiro, setNomeTerceiro] = useState('');
 
   // Novos estados para seleção
-  const [contaSelecionada, setContaSelecionada] = useState('Nubank Comum');
-  const [tagSelecionada, setTagSelecionada] = useState('Supermercado');
+  // Puxa as tabelas reais do Firebase
+  const { contas } = useAccounts();
+  
+  // O estado começa vazio
+  const [contaSelecionada, setContaSelecionada] = useState('');
 
-  // Listas de opções (Mocks baseados na sua estrutura)
-  const contasCasa = ['Nubank Comum', 'Santander Comum', 'Recorrentes Casa'];
-  const contasIndividuais = ['Nubank Indiv.', 'Santander Indiv.'];
-  
-  // Vamos juntar as contas para exibir, mas você pode separar depois se quiser
-  const todasContas = [...contasCasa, ...contasIndividuais];
-  
+  // Efeito inteligente: Assim que carregar as tabelas, seleciona a primeira automaticamente
+  useEffect(() => {
+    if (contas.length > 0 && contaSelecionada === '') {
+      setContaSelecionada(contas[0].nome);
+    }
+  }, [contas]);
+
+  const [tagSelecionada, setTagSelecionada] = useState('🛒 Supermercado');
   const tagsPadrao = ['🛒 Supermercado', '🍔 Lazer', '🏠 Casa', '🚗 Transporte', '🏥 Saúde', '🛍️ Compras'];
 
-  const handleSalvar = () => {
-    // Aqui no futuro chamaremos a função para salvar no Firebase!
-    console.log('Salvando:', { tipo, valor, descricao, isParcelado, qtdParcelas, isTerceiro, nomeTerceiro });
-    router.back(); // Fecha o modal
-  };
+  const handleSalvar = async () => {
+  // Validação simples
+  if (!valor || !descricao) {
+    Alert.alert('Atenção', 'Preencha o valor e a descrição antes de salvar.');
+    return;
+  }
+
+  setIsLoading(true);
+
+  // Chama a nossa função do backend
+  const resultado = await salvarTransacaoNoFirebase({
+    tipo,
+    valorFormatado: valor,
+    descricao,
+    contaSelecionada,
+    tagSelecionada,
+    isParcelado: tipo === 'DESPESA' ? isParcelado : false,
+    qtdParcelas,
+    isTerceiro: tipo === 'DESPESA' ? isTerceiro : false,
+    nomeTerceiro
+  });
+
+  setIsLoading(false);
+
+  if (resultado.sucesso) {
+    Alert.alert('Sucesso', 'Transação salva com sucesso!');
+    router.back(); // Fecha o modal e volta pro Dashboard
+  } else {
+    Alert.alert('Erro', 'Ocorreu um problema ao salvar. Tente novamente.');
+  }
+};
 
   return (
     <View style={styles.container}>
@@ -101,21 +135,27 @@ export default function AddTransactionModal() {
           />
         </View>
 
-        {/* SELETOR DE CONTAS / CARTÕES */}
+        {/* SELETOR DE CONTAS / CARTÕES (AGORA DINÂMICO) */}
         <View style={styles.sectionContainer}>
-          <Text style={styles.label}>Conta / Cartão</Text>
+          <Text style={styles.label}>Conta / Tabela</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScrollView}>
-            {todasContas.map((conta) => (
-              <TouchableOpacity
-                key={conta}
-                style={[styles.chip, contaSelecionada === conta && styles.chipSelected]}
-                onPress={() => setContaSelecionada(conta)}
-              >
-                <Text style={[styles.chipText, contaSelecionada === conta && styles.chipTextSelected]}>
-                  {conta}
-                </Text>
-              </TouchableOpacity>
-            ))}
+            {contas.length === 0 ? (
+              <Text style={{ marginLeft: 20, color: '#9ca3af', fontStyle: 'italic' }}>
+                Nenhuma tabela encontrada. Crie uma na aba "Contas".
+              </Text>
+            ) : (
+              contas.map((conta) => (
+                <TouchableOpacity
+                  key={conta.id}
+                  style={[styles.chip, contaSelecionada === conta.nome && styles.chipSelected]}
+                  onPress={() => setContaSelecionada(conta.nome)}
+                >
+                  <Text style={[styles.chipText, contaSelecionada === conta.nome && styles.chipTextSelected]}>
+                    {conta.nome}
+                  </Text>
+                </TouchableOpacity>
+              ))
+            )}
           </ScrollView>
         </View>
 
@@ -207,9 +247,17 @@ export default function AddTransactionModal() {
 
       {/* BOTÃO SALVAR */}
       <View style={styles.footer}>
-        <TouchableOpacity style={styles.saveButton} onPress={handleSalvar}>
-          <Text style={styles.saveButtonText}>Salvar Transação</Text>
-        </TouchableOpacity>
+        <TouchableOpacity 
+       style={[styles.saveButton, isLoading && { opacity: 0.7 }]} 
+       onPress={handleSalvar}
+       disabled={isLoading}
+     >
+       {isLoading ? (
+         <ActivityIndicator color="#ffffff" />
+       ) : (
+         <Text style={styles.saveButtonText}>Salvar Transação</Text>
+       )}
+     </TouchableOpacity>
       </View>
     </View>
   );

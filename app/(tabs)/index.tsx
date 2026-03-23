@@ -1,37 +1,78 @@
+// app/(tabs)/index.tsx
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient'; // npx expo install expo-linear-gradient
+import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import React from 'react';
-import { ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-
-// --- DADOS FALSOS (MOCKS) ATUALIZADOS ---
-const mockResumo = {
-  mesAtual: 'Março 2026',
-  
-  // Dados da Casa (Divisão)
-  totalCasa: 3000.00,
-  suaParteCasa: 2010.00, // 67%
-  parteRayCasa: 990.00,  // 33%
-  
-  // Seus Dados Pessoais (Nova Lógica)
-  suaReceitaTotal: 5500.00, // Ex: Seu Salário
-  seusGastosIndividuais: 450.00, // Seus cartões individuais
-  aReceberTerceiros: 250.00, // Dinheiro que não é custo seu
-};
-
-// --- CÁLCULOS INTELIGENTES (MOCK) ---
-const suasDespesasTotais = mockResumo.suaParteCasa + mockResumo.seusGastosIndividuais;
-const seuSaldoRestante = mockResumo.suaReceitaTotal - suasDespesasTotais;
-const porcentagemGasta = (suasDespesasTotais / mockResumo.suaReceitaTotal) * 100;
-
-const mockTransacoes = [
-  { id: '1', descricao: 'Supermercado', valor: 800.00, tag: 'Alimentação', conta: 'Nubank Comum', data: 'Hoje' },
-  { id: '2', descricao: 'TV da Sala (2/12)', valor: 200.00, tag: 'Casa', conta: 'Santander Comum', data: 'Ontem' },
-  { id: '3', descricao: 'Tênis João', valor: 250.00, tag: 'Terceiros', conta: 'Card Santander Individual', data: '20 Mar' },
-  { id: '4', descricao: 'Salário Março', valor: 5500.00, tag: 'Salário', conta: 'Conta Corrente', data: '01 Mar', tipo: 'RECEITA' },
-];
+import { ActivityIndicator, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useAccounts } from '../../hooks/useAccounts'; // 👈 Importamos as contas reais
+import { useTransactions } from '../../hooks/useTransactions';
 
 export default function DashboardScreen() {
+  const { transacoes, loading: loadingTransacoes } = useTransactions();
+  const { contas, loadingContas } = useAccounts();
+
+  // --- CÁLCULOS INTELIGENTES E DINÂMICOS ---
+  let totalDespesasConjuntas = 0;
+  let suaParteConjunta = 0;
+  let parteRayConjunta = 0;
+  
+  let seusGastosIndividuais = 0;
+  let aReceberTerceiros = 0;
+  let suaReceitaTotal = 0;
+
+  // O app analisa transação por transação e consulta a regra da tabela dela
+  transacoes.forEach((t) => {
+    if (t.type === 'RECEITA') {
+      suaReceitaTotal += t.amount;
+      return; // Pula para a próxima transação
+    } 
+    
+    // Se a compra foi marcada no formulário como "Para Terceiros", já vai para a dívida
+    if (t.isForThirdParty) {
+      aReceberTerceiros += t.amount;
+      return;
+    }
+
+    // Busca a conta real no Firebase para saber qual é a porcentagem dela
+    const conta = contas.find((c) => c.nome === t.accountId);
+
+    if (conta) {
+      if (conta.tipo === 'TERCEIROS') {
+        aReceberTerceiros += t.amount;
+      } else if (conta.tipo === 'COMUM') {
+        totalDespesasConjuntas += t.amount;
+        // Calcula a porcentagem exata que você definiu na hora de criar a tabela!
+        suaParteConjunta += t.amount * (conta.splitRule.me / 100);
+        parteRayConjunta += t.amount * (conta.splitRule.spouse / 100);
+      } else if (conta.tipo === 'INDIVIDUAL') {
+        if (conta.dono === 'EU') {
+          seusGastosIndividuais += t.amount;
+        }
+        // Se a conta for da Ray, não soma no SEU fluxo de caixa
+      }
+    }
+  });
+
+  // Calcula o seu fluxo de caixa final
+  const suasDespesasTotais = suaParteConjunta + seusGastosIndividuais;
+  const seuSaldoRestante = suaReceitaTotal - suasDespesasTotais;
+  
+  const porcentagemGasta = suaReceitaTotal > 0 ? (suasDespesasTotais / suaReceitaTotal) * 100 : 0;
+
+  const formatarData = (dataIso: string) => {
+    const data = new Date(dataIso);
+    return data.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+  };
+
+  if (loadingTransacoes || loadingContas) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color="#3b82f6" />
+        <Text style={{ marginTop: 10, color: '#6b7280' }}>Calculando suas finanças...</Text>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" />
@@ -40,22 +81,17 @@ export default function DashboardScreen() {
         {/* CABEÇALHO */}
         <View style={styles.header}>
           <View>
-            <Text style={styles.greeting}>Olá, Você!</Text>
+            <Text style={styles.greeting}>Olá!</Text>
             <Text style={styles.subGreeting}>Aqui está o resumo do mês.</Text>
           </View>
           <TouchableOpacity style={styles.monthSelector}>
-            <Text style={styles.monthText}>{mockResumo.mesAtual}</Text>
-            <Ionicons name="chevron-down" size={16} color="#3b82f6" />
+            <Text style={styles.monthText}>Mês Atual</Text>
+            <Ionicons name="calendar-outline" size={16} color="#3b82f6" />
           </TouchableOpacity>
         </View>
 
-        {/* NOVO SEÇÃO: SEU FLUXO DE CAIXA PESSOAL (Design Premium) */}
-        <LinearGradient
-          colors={['#1e3a8a', '#3b82f6']} // Gradiente azul moderno
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.personalFlowCard}
-        >
+        {/* CARD: SEU FLUXO DE CAIXA PESSOAL */}
+        <LinearGradient colors={['#1e3a8a', '#3b82f6']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.personalFlowCard}>
           <View style={styles.personalFlowHeader}>
             <Text style={styles.personalFlowTitle}>Seu Saldo Disponível</Text>
             <Ionicons name="eye-outline" size={20} color="rgba(255,255,255,0.7)" />
@@ -64,7 +100,7 @@ export default function DashboardScreen() {
           <Text style={styles.personalBalance}>R$ {seuSaldoRestante.toFixed(2)}</Text>
           
           <View style={styles.progressBarBackground}>
-            <View style={[styles.progressBarFill, { width: `${porcentagemGasta}%` }]} />
+            <View style={[styles.progressBarFill, { width: `${Math.min(porcentagemGasta, 100)}%` }]} />
           </View>
           <Text style={styles.progressText}>Você já comprometeu {porcentagemGasta.toFixed(0)}% da sua receita.</Text>
 
@@ -73,7 +109,7 @@ export default function DashboardScreen() {
               <Ionicons name="arrow-up-circle" size={18} color="#4ade80" />
               <View>
                 <Text style={styles.flowDetailLabel}>Sua Receita</Text>
-                <Text style={styles.flowDetailValue}>R$ {mockResumo.suaReceitaTotal.toFixed(2)}</Text>
+                <Text style={styles.flowDetailValue}>R$ {suaReceitaTotal.toFixed(2)}</Text>
               </View>
             </View>
             <View style={styles.flowDetailItem}>
@@ -86,82 +122,83 @@ export default function DashboardScreen() {
           </View>
         </LinearGradient>
 
-        {/* CARD PRINCIPAL ANTIGO: DESPESAS DA CASA (Ajustado) */}
+        {/* CARD DA CASA (AGORA DINÂMICO) */}
         <View style={styles.mainCard}>
-          <Text style={styles.cardTitle}>Despesas Comuns da Casa</Text>
-          <Text style={styles.totalAmount}>R$ {mockResumo.totalCasa.toFixed(2)}</Text>
+          <Text style={styles.cardTitle}>Despesas Conjuntas</Text>
+          <Text style={styles.totalAmount}>R$ {totalDespesasConjuntas.toFixed(2)}</Text>
           
           <View style={styles.splitContainer}>
             <View style={styles.splitItem}>
-              <Text style={styles.splitLabel}>Sua Parte (67%)</Text>
-              <Text style={styles.splitValue}>R$ {mockResumo.suaParteCasa.toFixed(2)}</Text>
+              <Text style={styles.splitLabel}>Sua Parte</Text>
+              <Text style={styles.splitValue}>R$ {suaParteConjunta.toFixed(2)}</Text>
             </View>
             <View style={styles.splitDivider} />
             <View style={styles.splitItem}>
-              <Text style={styles.splitLabel}>Parte Ray (33%)</Text>
-              <Text style={styles.splitValue}>R$ {mockResumo.parteRayCasa.toFixed(2)}</Text>
+              <Text style={styles.splitLabel}>Parte Ray</Text>
+              <Text style={styles.splitValue}>R$ {parteRayConjunta.toFixed(2)}</Text>
             </View>
           </View>
         </View>
 
-        {/* CARDS SECUNDÁRIOS: TERCEIROS */}
+        {/* CARD DE TERCEIROS E INDIVIDUAL */}
         <View style={styles.rowCards}>
-          {/* Removido o card individual daqui, pois já está no topo */}
-          <View style={[styles.smallCard, { backgroundColor: '#fdf2f8', marginRight: 0 }]}>
+          <View style={[styles.smallCard, { backgroundColor: '#fdf2f8', marginRight: 8 }]}>
             <View style={styles.smallCardHeader}>
-                <Text style={styles.smallCardTitle}>A Receber (Terceiros)</Text>
+                <Text style={styles.smallCardTitle}>A Receber</Text>
                 <Ionicons name="people-outline" size={16} color="#be185d" />
             </View>
-            <Text style={[styles.smallCardValue, { color: '#be185d' }]}>R$ {mockResumo.aReceberTerceiros.toFixed(2)}</Text>
+            <Text style={[styles.smallCardValue, { color: '#be185d' }]}>R$ {aReceberTerceiros.toFixed(2)}</Text>
+          </View>
+          
+          <View style={[styles.smallCard, { backgroundColor: '#f0f9ff' }]}>
+            <View style={styles.smallCardHeader}>
+                <Text style={styles.smallCardTitle}>Individual</Text>
+                <Ionicons name="person-outline" size={16} color="#0369a1" />
+            </View>
+            <Text style={[styles.smallCardValue, { color: '#0369a1' }]}>R$ {seusGastosIndividuais.toFixed(2)}</Text>
           </View>
         </View>
 
-        {/* LISTA DE TRANSAÇÕES RECENTES */}
+        {/* LISTA DE TRANSAÇÕES REAIS */}
         <View style={styles.transactionsSection}>
           <Text style={styles.sectionTitle}>Transações Recentes</Text>
           
-          {mockTransacoes.map((item) => (
-            <View key={item.id} style={styles.transactionItem}>
-              <View style={[styles.transactionIcon, { backgroundColor: item.tipo === 'RECEITA' ? '#ecfdf5' : '#f3f4f6' }]}>
-                <Ionicons 
-                    name={item.tipo === 'RECEITA' ? "trending-up" : "cart-outline"} 
-                    size={24} 
-                    color={item.tipo === 'RECEITA' ? "#10b981" : "#4b5563"} 
-                />
+          {transacoes.length === 0 ? (
+            <Text style={{ color: '#6b7280', textAlign: 'center', marginTop: 20 }}>Nenhuma transação registrada ainda.</Text>
+          ) : (
+            transacoes.map((item) => (
+              <View key={item.id} style={styles.transactionItem}>
+                <View style={[styles.transactionIcon, { backgroundColor: item.type === 'RECEITA' ? '#ecfdf5' : '#f3f4f6' }]}>
+                  <Ionicons name={item.type === 'RECEITA' ? "trending-up" : "cart-outline"} size={24} color={item.type === 'RECEITA' ? "#10b981" : "#4b5563"} />
+                </View>
+                <View style={styles.transactionDetails}>
+                  <Text style={styles.transactionDesc} numberOfLines={1}>{item.descricao}</Text>
+                  <Text style={styles.transactionMeta}>{item.accountId} • {item.tags ? item.tags[0] : ''}</Text>
+                </View>
+                <View style={styles.transactionRight}>
+                  <Text style={[styles.transactionAmount, { color: item.type === 'RECEITA' ? '#10b981' : '#1f2937' }]}>
+                      {item.type === 'RECEITA' ? '+' : ''}R$ {item.amount.toFixed(2)}
+                  </Text>
+                  <Text style={styles.transactionDate}>{formatarData(item.date)}</Text>
+                </View>
               </View>
-              <View style={styles.transactionDetails}>
-                <Text style={styles.transactionDesc}>{item.descricao}</Text>
-                <Text style={styles.transactionMeta}>{item.conta} • {item.tag}</Text>
-              </View>
-              <View style={styles.transactionRight}>
-                <Text style={[styles.transactionAmount, { color: item.tipo === 'RECEITA' ? '#10b981' : '#1f2937' }]}>
-                    {item.tipo === 'RECEITA' ? '+' : ''}R$ {item.valor.toFixed(2)}
-                </Text>
-                <Text style={styles.transactionDate}>{item.data}</Text>
-              </View>
-            </View>
-          ))}
+            ))
+          )}
         </View>
 
       </ScrollView>
 
-      {/* BOTÃO FLUTUANTE (FAB) PARA ADICIONAR DESPESA (Ajustado posição para não cobrir a tab bar) */}
-      <TouchableOpacity 
-        style={styles.fab} 
-        activeOpacity={0.8}
-        onPress={() => router.push('/add-transaction')}
-      >
+      <TouchableOpacity style={styles.fab} activeOpacity={0.8} onPress={() => router.push('/add-transaction')}>
         <Ionicons name="add" size={32} color="#fff" />
       </TouchableOpacity>
     </View>
   );
 }
 
-// --- ESTILOS ATUALIZADOS E CORRIGIDOS ---
+// Mantenha os mesmos estilos (styles) que já estavam no arquivo...
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f3f4f6' },
   scrollContent: { padding: 20, paddingBottom: 110 }, 
-  // CORREÇÃO AQUI: alignItems: 'flex-start' em vez de 'start'
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24, marginTop: 50 },
   greeting: { fontSize: 26, fontWeight: 'bold', color: '#1f2937' },
   subGreeting: { fontSize: 14, color: '#6b7280', marginTop: 2 },
