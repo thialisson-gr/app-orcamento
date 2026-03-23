@@ -3,9 +3,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import React, { useState } from 'react';
-import { ActivityIndicator, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useAccounts } from '../../hooks/useAccounts';
 import { useTransactions } from '../../hooks/useTransactions';
+import { deletarTransacaoDoFirebase } from '../../services/firebase/firestore';
 
 const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
@@ -19,11 +20,10 @@ export default function DashboardScreen() {
   const anoAtual = dataFiltro.getFullYear();
   const mesFormatado = `${MESES[mesAtual]} ${anoAtual}`;
 
-  // Funções para navegar no tempo
   const irMesAnterior = () => setDataFiltro(new Date(anoAtual, mesAtual - 1, 1));
   const irProximoMes = () => setDataFiltro(new Date(anoAtual, mesAtual + 1, 1));
 
-  // --- CÁLCULOS INTELIGENTES (FILTRADOS PELO MÊS) ---
+  // --- CÁLCULOS INTELIGENTES (O SEU PLANEJAMENTO DO MÊS) ---
   let totalDespesasConjuntas = 0;
   let suaParteConjunta = 0;
   let parteRayConjunta = 0;
@@ -34,10 +34,9 @@ export default function DashboardScreen() {
   transacoes.forEach((t) => {
     const dataPag = new Date(t.paymentDate || t.date);
     
-    // REGRA DE OURO: Só entra na conta se for EXATAMENTE do mês e ano que estamos olhando na tela!
+    // Filtra apenas o que pertence ao mês selecionado na tela
     const pertenceAoMes = dataPag.getMonth() === mesAtual && dataPag.getFullYear() === anoAtual;
-    
-    if (!pertenceAoMes) return; // Ignora tudo que não for deste mês
+    if (!pertenceAoMes) return;
 
     if (t.type === 'RECEITA') {
       suaReceitaTotal += t.amount;
@@ -56,12 +55,12 @@ export default function DashboardScreen() {
         aReceberTerceiros += t.amount;
       } else if (conta.tipo === 'COMUM') {
         totalDespesasConjuntas += t.amount;
-        if (t.isPaid) {
-          suaParteConjunta += t.amount * (conta.splitRule.me / 100);
-          parteRayConjunta += t.amount * (conta.splitRule.spouse / 100);
-        }
+        // 👇 Removemos a trava do "isPaid". Agora ele mostra o planejamento total do mês!
+        suaParteConjunta += t.amount * (conta.splitRule.me / 100);
+        parteRayConjunta += t.amount * (conta.splitRule.spouse / 100);
       } else if (conta.tipo === 'INDIVIDUAL' && conta.dono === 'EU') {
-        if (t.isPaid) seusGastosIndividuais += t.amount; 
+        // 👇 Removemos a trava do "isPaid".
+        seusGastosIndividuais += t.amount; 
       }
     }
   });
@@ -70,18 +69,15 @@ export default function DashboardScreen() {
   const seuSaldoRestante = suaReceitaTotal - suasDespesasTotais;
   const porcentagemGasta = suaReceitaTotal > 0 ? (suasDespesasTotais / suaReceitaTotal) * 100 : 0;
 
-  // --- AGRUPAR COMPRAS PARCELADAS NA LISTA (DO MÊS) ---
+  // --- AGRUPAR COMPRAS PARCELADAS (TODAS AS RECENTES GERAIS) ---
   const transacoesRecentes: any[] = [];
   const parentIdsVistos = new Set();
 
   transacoes.forEach((t) => {
-    const dataPag = new Date(t.paymentDate || t.date);
-    const pertenceAoMes = dataPag.getMonth() === mesAtual && dataPag.getFullYear() === anoAtual;
-    if (!pertenceAoMes) return;
-
     if (t.isInstallment && t.installmentDetails?.parentId) {
       if (!parentIdsVistos.has(t.installmentDetails.parentId)) {
         parentIdsVistos.add(t.installmentDetails.parentId);
+        
         const valorTotal = t.amount * t.installmentDetails.total;
         const nomeLimpo = t.descricao.split(' (')[0];
 
@@ -93,9 +89,14 @@ export default function DashboardScreen() {
         });
       }
     } else {
-      transacoesRecentes.push({ ...t, dateParaExibir: t.purchaseDate || t.date });
+      transacoesRecentes.push({
+        ...t,
+        dateParaExibir: t.purchaseDate || t.date
+      });
     }
   });
+
+  const ultimasTransacoes = transacoesRecentes.slice(0, 15);
 
   const formatarData = (dataIso: string) => {
     if (!dataIso) return '';
@@ -107,7 +108,7 @@ export default function DashboardScreen() {
     return (
       <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
         <ActivityIndicator size="large" color="#3b82f6" />
-        <Text style={{ marginTop: 10, color: '#6b7280' }}>Calculando suas finanças...</Text>
+        <Text style={{ marginTop: 10, color: '#6b7280' }}>Calculando finanças...</Text>
       </View>
     );
   }
@@ -117,7 +118,7 @@ export default function DashboardScreen() {
       <StatusBar barStyle="dark-content" />
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         
-        {/* CABEÇALHO COM NAVEGAÇÃO DE MESES */}
+        {/* CABEÇALHO */}
         <View style={styles.header}>
           <View>
             <Text style={styles.greeting}>Olá!</Text>
@@ -137,30 +138,30 @@ export default function DashboardScreen() {
           </View>
         </View>
 
-        {/* --- O RESTANTE DA TELA CONTINUA IGUAL --- */}
+        {/* CARD: FLUXO DE CAIXA PESSOAL */}
         <LinearGradient colors={['#1e3a8a', '#3b82f6']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.personalFlowCard}>
           <View style={styles.personalFlowHeader}>
-            <Text style={styles.personalFlowTitle}>Seu Saldo Disponível</Text>
+            <Text style={styles.personalFlowTitle}>Previsão de Saldo do Mês</Text>
             <Ionicons name="eye-outline" size={20} color="rgba(255,255,255,0.7)" />
           </View>
           <Text style={styles.personalBalance}>R$ {seuSaldoRestante.toFixed(2)}</Text>
           <View style={styles.progressBarBackground}>
             <View style={[styles.progressBarFill, { width: `${Math.min(porcentagemGasta, 100)}%` }]} />
           </View>
-          <Text style={styles.progressText}>Você já comprometeu {porcentagemGasta.toFixed(0)}% da sua receita.</Text>
+          <Text style={styles.progressText}>Você já comprometeu {porcentagemGasta.toFixed(0)}% da sua receita prevista.</Text>
 
           <View style={styles.flowDetailsRow}>
             <View style={styles.flowDetailItem}>
               <Ionicons name="arrow-up-circle" size={18} color="#4ade80" />
               <View>
-                <Text style={styles.flowDetailLabel}>Sua Receita</Text>
+                <Text style={styles.flowDetailLabel}>Receita Prevista</Text>
                 <Text style={styles.flowDetailValue}>R$ {suaReceitaTotal.toFixed(2)}</Text>
               </View>
             </View>
             <View style={styles.flowDetailItem}>
               <Ionicons name="arrow-down-circle" size={18} color="#f87171" />
               <View>
-                <Text style={styles.flowDetailLabel}>Suas Despesas</Text>
+                <Text style={styles.flowDetailLabel}>Despesas Previstas</Text>
                 <Text style={styles.flowDetailValue}>R$ {suasDespesasTotais.toFixed(2)}</Text>
               </View>
             </View>
@@ -200,13 +201,33 @@ export default function DashboardScreen() {
           </View>
         </View>
 
+        {/* LISTA DE TRANSAÇÕES GERAIS */}
         <View style={styles.transactionsSection}>
-          <Text style={styles.sectionTitle}>Transações de {MESES[mesAtual]}</Text>
-          {transacoesRecentes.length === 0 ? (
-            <Text style={{ color: '#6b7280', textAlign: 'center', marginTop: 20 }}>Nenhuma transação neste mês.</Text>
+          <Text style={styles.sectionTitle}>Transações Recentes</Text>
+          
+          {ultimasTransacoes.length === 0 ? (
+            <Text style={{ color: '#6b7280', textAlign: 'center', marginTop: 20 }}>Nenhuma transação registrada ainda.</Text>
           ) : (
-            transacoesRecentes.map((item) => (
-              <View key={item.id} style={styles.transactionItem}>
+            ultimasTransacoes.map((item: any) => (
+              <TouchableOpacity 
+                key={item.id} 
+                style={styles.transactionItem}
+                activeOpacity={0.7}
+                onLongPress={() => {
+                  Alert.alert(
+                    'Apagar Transação',
+                    `Deseja excluir "${item.descricao}" no valor de R$ ${item.amount.toFixed(2)}?`,
+                    [
+                      { text: 'Cancelar', style: 'cancel' },
+                      { 
+                        text: 'Sim, Apagar', 
+                        style: 'destructive', 
+                        onPress: () => deletarTransacaoDoFirebase(item.id) 
+                      }
+                    ]
+                  );
+                }}
+              >
                 <View style={[styles.transactionIcon, { backgroundColor: item.type === 'RECEITA' ? '#ecfdf5' : '#f3f4f6' }]}>
                   <Ionicons name={item.type === 'RECEITA' ? "trending-up" : "cart-outline"} size={24} color={item.type === 'RECEITA' ? "#10b981" : "#4b5563"} />
                 </View>
@@ -220,7 +241,7 @@ export default function DashboardScreen() {
                   </Text>
                   <Text style={styles.transactionDate}>{formatarData(item.dateParaExibir)}</Text>
                 </View>
-              </View>
+              </TouchableOpacity>
             ))
           )}
         </View>

@@ -6,28 +6,28 @@ import { ActivityIndicator, Alert, ScrollView, StyleSheet, Switch, Text, TextInp
 import { useAccounts } from '../hooks/useAccounts';
 import { salvarTransacaoNoFirebase } from '../services/firebase/firestore';
 
+// Definimos categorias diferentes para cada tipo
+const TAGS_DESPESA = ['🛒 Supermercado', '🍔 Lazer', '🏠 Casa', '🚗 Transporte', '🏥 Saúde', '🛍️ Compras'];
+const TAGS_RECEITA = ['💰 Salário', '💸 Pix', '🏦 Transferência', '📈 Rendimentos', '🎁 Outros'];
+
 export default function AddTransactionModal() {
-  // Puxa as tabelas reais do Firebase
   const { contas } = useAccounts();
   
   // --- ESTADOS DO FORMULÁRIO ---
   const [tipo, setTipo] = useState<'DESPESA' | 'RECEITA'>('DESPESA');
   const [valor, setValor] = useState('');
   const [descricao, setDescricao] = useState('');
-  const [dataPagamento, setDataPagamento] = useState(''); // Novo estado para a data
+  const [dataPagamento, setDataPagamento] = useState(''); 
   
   const [contaSelecionada, setContaSelecionada] = useState('');
-  const [tagSelecionada, setTagSelecionada] = useState('🛒 Supermercado');
+  const [tagSelecionada, setTagSelecionada] = useState(TAGS_DESPESA[0]);
   
-  // Regras de negócio
   const [isParcelado, setIsParcelado] = useState(false);
   const [qtdParcelas, setQtdParcelas] = useState('2');
   const [isTerceiro, setIsTerceiro] = useState(false);
   const [nomeTerceiro, setNomeTerceiro] = useState('');
   
   const [isLoading, setIsLoading] = useState(false);
-
-  const tagsPadrao = ['🛒 Supermercado', '🍔 Lazer', '🏠 Casa', '🚗 Transporte', '🏥 Saúde', '🛍️ Compras'];
 
   // Seleciona a primeira conta automaticamente ao carregar
   useEffect(() => {
@@ -36,7 +36,13 @@ export default function AddTransactionModal() {
     }
   }, [contas]);
 
-  // --- MÁSCARAS E FORMATAÇÕES ---
+  // Muda as tags automaticamente quando troca entre Despesa/Receita
+  const handleMudarTipo = (novoTipo: 'DESPESA' | 'RECEITA') => {
+    setTipo(novoTipo);
+    setTagSelecionada(novoTipo === 'DESPESA' ? TAGS_DESPESA[0] : TAGS_RECEITA[0]);
+  };
+
+  // --- MÁSCARAS ---
   const handleValorChange = (texto: string) => {
     const apenasNumeros = texto.replace(/\D/g, '');
     const valorDecimal = Number(apenasNumeros) / 100;
@@ -68,8 +74,9 @@ export default function AddTransactionModal() {
       return;
     }
 
-    if (dataPagamento && dataPagamento.length > 0 && dataPagamento.length < 10) {
-      Alert.alert('Atenção', 'Digite uma data válida no formato DD/MM/AAAA ou deixe em branco.');
+    // Se for despesa, exige que tenha uma conta selecionada
+    if (tipo === 'DESPESA' && !contaSelecionada) {
+      Alert.alert('Atenção', 'Selecione uma conta ou tabela para esta despesa.');
       return;
     }
 
@@ -79,30 +86,31 @@ export default function AddTransactionModal() {
       tipo,
       valorFormatado: valor,
       descricao,
-      contaSelecionada,
+      // Se for receita, salvamos em uma conta genérica invisível
+      contaSelecionada: tipo === 'RECEITA' ? 'Carteira Geral' : contaSelecionada,
       tagSelecionada,
       isParcelado: tipo === 'DESPESA' ? isParcelado : false,
       qtdParcelas,
       isTerceiro: tipo === 'DESPESA' ? isTerceiro : false,
       nomeTerceiro,
-      dataPagamento // Enviamos a data para o backend
+      dataPagamento 
     });
 
     setIsLoading(false);
 
     if (resultado.sucesso) {
-      Alert.alert('Sucesso', 'Transação salva com sucesso!');
       router.back();
     } else {
       Alert.alert('Erro', 'Ocorreu um problema ao salvar. Tente novamente.');
     }
   };
 
+  const categoriasAtuais = tipo === 'DESPESA' ? TAGS_DESPESA : TAGS_RECEITA;
+
   return (
     <View style={styles.container}>
-      {/* CABEÇALHO */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.closeBtn}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.closeBtn} activeOpacity={0.7}>
           <Ionicons name="close" size={24} color="#6b7280" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Nova Transação</Text>
@@ -113,10 +121,10 @@ export default function AddTransactionModal() {
         
         {/* SELETOR RECEITA / DESPESA */}
         <View style={styles.typeSelector}>
-          <TouchableOpacity style={[styles.typeBtn, tipo === 'DESPESA' && styles.typeBtnDespesa]} onPress={() => setTipo('DESPESA')}>
+          <TouchableOpacity style={[styles.typeBtn, tipo === 'DESPESA' && styles.typeBtnDespesa]} onPress={() => handleMudarTipo('DESPESA')} activeOpacity={0.8}>
             <Text style={[styles.typeText, tipo === 'DESPESA' && styles.typeTextActive]}>Despesa</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={[styles.typeBtn, tipo === 'RECEITA' && styles.typeBtnReceita]} onPress={() => setTipo('RECEITA')}>
+          <TouchableOpacity style={[styles.typeBtn, tipo === 'RECEITA' && styles.typeBtnReceita]} onPress={() => handleMudarTipo('RECEITA')} activeOpacity={0.8}>
             <Text style={[styles.typeText, tipo === 'RECEITA' && styles.typeTextActive]}>Receita</Text>
           </TouchableOpacity>
         </View>
@@ -135,35 +143,39 @@ export default function AddTransactionModal() {
           />
         </View>
 
-        {/* SELETOR DE CONTAS DINÂMICAS */}
-        <View style={styles.sectionContainer}>
-          <Text style={styles.label}>Conta / Tabela</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScrollView}>
-            {contas.length === 0 ? (
-              <Text style={{ marginLeft: 20, color: '#9ca3af', fontStyle: 'italic' }}>Nenhuma tabela encontrada. Crie na aba "Contas".</Text>
-            ) : (
-              contas.map((conta) => (
-                <TouchableOpacity
-                  key={conta.id}
-                  style={[styles.chip, contaSelecionada === conta.nome && styles.chipSelected]}
-                  onPress={() => setContaSelecionada(conta.nome)}
-                >
-                  <Text style={[styles.chipText, contaSelecionada === conta.nome && styles.chipTextSelected]}>{conta.nome}</Text>
-                </TouchableOpacity>
-              ))
-            )}
-          </ScrollView>
-        </View>
+        {/* SÓ MOSTRA O SELETOR DE CONTAS SE FOR DESPESA */}
+        {tipo === 'DESPESA' && (
+          <View style={styles.sectionContainer}>
+            <Text style={styles.label}>Conta / Tabela</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScrollView}>
+              {contas.length === 0 ? (
+                <Text style={{ marginLeft: 20, color: '#9ca3af', fontStyle: 'italic' }}>Nenhuma tabela encontrada. Crie na aba "Contas".</Text>
+              ) : (
+                contas.map((conta) => (
+                  <TouchableOpacity
+                    key={conta.id}
+                    style={[styles.chip, contaSelecionada === conta.nome && styles.chipSelected]}
+                    onPress={() => setContaSelecionada(conta.nome)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[styles.chipText, contaSelecionada === conta.nome && styles.chipTextSelected]}>{conta.nome}</Text>
+                  </TouchableOpacity>
+                ))
+              )}
+            </ScrollView>
+          </View>
+        )}
 
-        {/* SELETOR DE CATEGORIAS */}
+        {/* SELETOR DE CATEGORIAS (DINÂMICO) */}
         <View style={styles.sectionContainer}>
           <Text style={styles.label}>Categoria</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScrollView}>
-            {tagsPadrao.map((tag) => (
+            {categoriasAtuais.map((tag) => (
               <TouchableOpacity
                 key={tag}
                 style={[styles.chip, tagSelecionada === tag && styles.chipSelected]}
                 onPress={() => setTagSelecionada(tag)}
+                activeOpacity={0.7}
               >
                 <Text style={[styles.chipText, tagSelecionada === tag && styles.chipTextSelected]}>{tag}</Text>
               </TouchableOpacity>
@@ -171,20 +183,18 @@ export default function AddTransactionModal() {
           </ScrollView>
         </View>
 
-        {/* DESCRIÇÃO DA DESPESA (De volta ao seu lugar!) */}
         <View style={styles.formGroup}>
           <Text style={styles.label}>Descrição</Text>
           <TextInput
             style={styles.input}
-            placeholder="Ex: Supermercado, Internet..."
+            placeholder={tipo === 'DESPESA' ? "Ex: Supermercado, Internet..." : "Ex: Salário, Projeto X..."}
             value={descricao}
             onChangeText={setDescricao}
           />
         </View>
 
-        {/* DATA DE PAGAMENTO */}
         <View style={styles.formGroup}>
-          <Text style={styles.label}>Data do Pagamento (Opcional)</Text>
+          <Text style={styles.label}>Data do Recebimento / Pagamento</Text>
           <TextInput
             style={styles.input}
             placeholder="DD/MM/AAAA (Deixe em branco para hoje)"
@@ -252,13 +262,8 @@ export default function AddTransactionModal() {
 
       {/* BOTÃO SALVAR */}
       <View style={styles.footer}>
-        <TouchableOpacity 
-          style={[styles.saveButton, isLoading && { opacity: 0.7 }]} 
-          onPress={handleSalvar} 
-          disabled={isLoading}
-          activeOpacity={0.8} // 👈 Adicione isto!
-        >
-          {isLoading ? <ActivityIndicator color="#ffffff" /> : <Text style={styles.saveButtonText}>Salvar Transação</Text>}
+        <TouchableOpacity style={[styles.saveButton, isLoading && { opacity: 0.7 }]} onPress={handleSalvar} disabled={isLoading} activeOpacity={0.8}>
+          {isLoading ? <ActivityIndicator color="#ffffff" /> : <Text style={styles.saveButtonText}>Salvar</Text>}
         </TouchableOpacity>
       </View>
     </View>

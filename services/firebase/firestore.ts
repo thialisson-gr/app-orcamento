@@ -1,5 +1,12 @@
 // services/firebase/firestore.ts
-import { addDoc, collection, doc, updateDoc, writeBatch } from "firebase/firestore";
+import {
+  addDoc,
+  collection,
+  deleteDoc,
+  doc,
+  updateDoc,
+  writeBatch,
+} from "firebase/firestore";
 import { db } from "./config";
 
 // --- INTERFACES (Definem o formato dos nossos dados) ---
@@ -183,6 +190,17 @@ export async function pagarFaturaCompleta(transacoesIds: string[]) {
     return true;
   } catch (erro) {
     console.error("Erro ao pagar fatura:", erro);
+    return false;
+  }
+}
+
+export async function deletarTransacaoDoFirebase(id: string) {
+  try {
+    const docRef = doc(db, "transacoes", id);
+    await deleteDoc(docRef);
+    return true;
+  } catch (erro) {
+    console.error("Erro ao deletar transação:", erro);
     return false;
   }
 }
