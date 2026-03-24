@@ -1,8 +1,8 @@
 // app/edit-account.tsx
 import { Ionicons } from '@expo/vector-icons';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, Stack, useLocalSearchParams } from 'expo-router';
 import React, { useState } from 'react';
-import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { atualizarContaNoFirebase } from '../services/firebase/firestore';
 
 export default function EditAccountScreen() {
@@ -45,15 +45,19 @@ export default function EditAccountScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.closeBtn} activeOpacity={0.7}>
-          <Ionicons name="close" size={24} color="#6b7280" />
+      {/* 👇 Oculta o cabeçalho feio nativo do sistema */}
+      <Stack.Screen options={{ headerShown: false }} />
+
+      {/* NOVO CABEÇALHO COMPACTO */}
+      <View style={styles.compactHeader}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backButton} activeOpacity={0.7}>
+          <Ionicons name="arrow-back" size={24} color="#1f2937" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Editar Tabela</Text>
         <View style={{ width: 40 }} />
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         
         <View style={styles.infoBox}>
           <Ionicons name="information-circle" size={20} color="#3b82f6" />
@@ -107,8 +111,13 @@ export default function EditAccountScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#ffffff' }, header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, borderBottomWidth: 1, borderBottomColor: '#f3f4f6' },
-  closeBtn: { width: 40, height: 40, justifyContent: 'center', alignItems: 'flex-start' }, headerTitle: { fontSize: 18, fontWeight: 'bold', color: '#1f2937' },
+  container: { flex: 1, backgroundColor: '#ffffff' },
+  
+  // DESIGN COMPACTO DO CABEÇALHO
+  compactHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: Platform.OS === 'ios' ? 50 : 40, paddingBottom: 16, backgroundColor: '#ffffff', borderBottomWidth: 1, borderBottomColor: '#e5e7eb' },
+  backButton: { width: 40, height: 40, justifyContent: 'center', alignItems: 'flex-start' },
+  headerTitle: { fontSize: 18, fontWeight: 'bold', color: '#1f2937' },
+  
   scrollContent: { padding: 20 },
   infoBox: { flexDirection: 'row', backgroundColor: '#eff6ff', padding: 16, borderRadius: 12, marginBottom: 24, alignItems: 'center', gap: 10 },
   infoText: { flex: 1, color: '#1e3a8a', fontSize: 13, lineHeight: 18 },

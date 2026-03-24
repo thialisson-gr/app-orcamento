@@ -74,7 +74,6 @@ export default function DashboardScreen() {
   const parentIdsVistos = new Set();
 
   transacoes.forEach((t) => {
-    // 1. Agrupa as Parceladas
     if (t.isInstallment && t.installmentDetails?.parentId) {
       if (!parentIdsVistos.has(t.installmentDetails.parentId)) {
         parentIdsVistos.add(t.installmentDetails.parentId);
@@ -88,7 +87,6 @@ export default function DashboardScreen() {
         });
       }
     } 
-    // 2. 👈 NOVO: Agrupa as Fixas/Recorrentes (ex: Salário)
     else if (t.isFixed && t.fixedDetails?.parentId) {
       if (!parentIdsVistos.has(t.fixedDetails.parentId)) {
         parentIdsVistos.add(t.fixedDetails.parentId);
@@ -99,7 +97,6 @@ export default function DashboardScreen() {
         });
       }
     } 
-    // 3. Transações únicas normais
     else {
       transacoesRecentes.push({
         ...t,
@@ -108,12 +105,20 @@ export default function DashboardScreen() {
     }
   });
 
+  // 👇 MUDANÇA 1: Força a ordenação pegando o milissegundo exato em que foi salva!
+  transacoesRecentes.sort((a, b) => {
+    const tempoA = new Date(a.dateParaExibir).getTime();
+    const tempoB = new Date(b.dateParaExibir).getTime();
+    return tempoB - tempoA; 
+  });
+
   const ultimasTransacoes = transacoesRecentes.slice(0, 15);
 
-  const formatarData = (dataIso: string) => {
+  // 👇 MUDANÇA 2: Agora formata mostrando a Hora também
+  const formatarDataHora = (dataIso: string) => {
     if (!dataIso) return '';
     const data = new Date(dataIso);
-    return data.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+    return data.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) + ' às ' + data.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
   };
 
   if (loadingTransacoes || loadingContas) {
@@ -251,7 +256,7 @@ export default function DashboardScreen() {
                   <Text style={[styles.transactionAmount, { color: item.type === 'RECEITA' ? '#10b981' : '#1f2937' }]}>
                       {item.type === 'RECEITA' ? '+' : ''}R$ {item.amount.toFixed(2)}
                   </Text>
-                  <Text style={styles.transactionDate}>{formatarData(item.dateParaExibir)}</Text>
+                  <Text style={styles.transactionDate}>{formatarDataHora(item.dateParaExibir)}</Text>
                 </View>
               </TouchableOpacity>
             ))

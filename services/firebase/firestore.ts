@@ -65,7 +65,8 @@ export async function salvarTransacaoNoFirebase(dados: SalvarTransacaoProps) {
 
     if (dados.isParcelado && dados.tipo === "DESPESA") {
       const numeroParcelas = parseInt(dados.qtdParcelas);
-      const valorParcela = valorNumerico / numeroParcelas;
+      // 👇 MUDANÇA: O valor digitado já é o da parcela, não divide mais!
+      const valorParcela = valorNumerico;
       const parentId = gerarIdUnico();
       const batch = writeBatch(db);
 
@@ -86,7 +87,7 @@ export async function salvarTransacaoNoFirebase(dados: SalvarTransacaoProps) {
             current: i + 1,
             total: numeroParcelas,
           },
-          isPaid: false, // Nasce Pendente
+          isPaid: false,
           isForThirdParty: dados.isTerceiro,
           ...(dados.isTerceiro && {
             thirdPartyDetails: {
@@ -103,7 +104,7 @@ export async function salvarTransacaoNoFirebase(dados: SalvarTransacaoProps) {
 
     if (dados.isFixo) {
       const numeroMeses = parseInt(dados.mesesProjecao) || 12;
-      const parentId = gerarIdUnico(); // 👈 Agrupador para Contas Fixas
+      const parentId = gerarIdUnico();
       const batch = writeBatch(db);
 
       for (let i = 0; i < numeroMeses; i++) {
@@ -119,8 +120,8 @@ export async function salvarTransacaoNoFirebase(dados: SalvarTransacaoProps) {
           tags: [dados.tagSelecionada],
           isInstallment: false,
           isFixed: true,
-          fixedDetails: { parentId, current: i + 1, total: numeroMeses }, // 👈 Salva o agrupador no banco
-          isPaid: false, // 👈 RECEITAS E DESPESAS NASCEM PENDENTES AGORA
+          fixedDetails: { parentId, current: i + 1, total: numeroMeses },
+          isPaid: false,
           isForThirdParty: dados.isTerceiro,
           ...(dados.isTerceiro && {
             thirdPartyDetails: {
@@ -146,7 +147,7 @@ export async function salvarTransacaoNoFirebase(dados: SalvarTransacaoProps) {
       tags: [dados.tagSelecionada],
       isInstallment: false,
       isFixed: false,
-      isPaid: false, // 👈 TUDO NASCE PENDENTE
+      isPaid: false,
       isForThirdParty: dados.isTerceiro,
       ...(dados.isTerceiro && {
         thirdPartyDetails: {
@@ -158,7 +159,6 @@ export async function salvarTransacaoNoFirebase(dados: SalvarTransacaoProps) {
     await addDoc(collection(db, "transacoes"), novaTransacao);
     return { sucesso: true };
   } catch (erro) {
-    console.error("Erro ao guardar no Firebase:", erro);
     return { sucesso: false, erro };
   }
 }
@@ -222,7 +222,6 @@ export async function deletarContaNoFirebase(id: string) {
     await deleteDoc(docRef);
     return true;
   } catch (erro) {
-    console.error("Erro ao apagar conta:", erro);
     return false;
   }
 }
@@ -234,8 +233,6 @@ export async function atualizarContaNoFirebase(
 ) {
   try {
     const batch = writeBatch(db);
-
-    // 1. Atualiza os dados da Conta
     const contaRef = doc(db, "contas", id);
     batch.update(contaRef, {
       nome: dados.nome,
@@ -243,8 +240,6 @@ export async function atualizarContaNoFirebase(
       dono: dados.dono || null,
       splitRule: { me: dados.porcentagemEu, spouse: dados.porcentagemRay },
     });
-
-    // 2. Se você mudou o nome da tabela, ele atualiza todas as transações antigas!
     if (nomeAntigo !== dados.nome) {
       const q = query(
         collection(db, "transacoes"),
@@ -257,11 +252,20 @@ export async function atualizarContaNoFirebase(
         });
       });
     }
-
     await batch.commit();
     return { sucesso: true };
   } catch (erro) {
-    console.error("Erro ao atualizar conta:", erro);
+    return { sucesso: false, erro };
+  }
+}
+
+// 👇 NOVA FUNÇÃO: Atualizar Transação (Nome e Valor)
+export async function atualizarTransacaoNoFirebase(id: string, dados: any) {
+  try {
+    const docRef = doc(db, "transacoes", id);
+    await updateDoc(docRef, dados);
+    return { sucesso: true };
+  } catch (erro) {
     return { sucesso: false, erro };
   }
 }
