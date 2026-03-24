@@ -21,7 +21,7 @@ const app = initializeApp(firebaseConfig);
 // Inicializa o Banco de Dados
 export const db = getFirestore(app);
 
-// Forçamos o TypeScript a aceitar a função usando o "(firebaseAuth as any)"
+// Inicializa a Autenticação com "memória" para não deslogar sozinho no celular
 export const auth = firebaseAuth.initializeAuth(app, {
   persistence: (firebaseAuth as any).getReactNativePersistence(AsyncStorage),
 });

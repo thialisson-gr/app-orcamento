@@ -10,7 +10,7 @@ import {
   where,
   writeBatch,
 } from "firebase/firestore";
-import { db } from "./config";
+import { auth, db } from "./config";
 
 export interface SalvarTransacaoProps {
   tipo: "DESPESA" | "RECEITA";
@@ -95,6 +95,7 @@ export async function salvarTransacaoNoFirebase(dados: SalvarTransacaoProps) {
               status: "PENDING",
             },
           }),
+          userId: auth.currentUser?.uid,
         };
         batch.set(doc(collection(db, "transacoes")), novaParcela);
       }
@@ -129,6 +130,7 @@ export async function salvarTransacaoNoFirebase(dados: SalvarTransacaoProps) {
               status: "PENDING",
             },
           }),
+          userId: auth.currentUser?.uid,
         };
         batch.set(doc(collection(db, "transacoes")), novaTransacaoFixa);
       }
@@ -155,6 +157,7 @@ export async function salvarTransacaoNoFirebase(dados: SalvarTransacaoProps) {
           status: "PENDING",
         },
       }),
+      userId: auth.currentUser?.uid,
     };
     await addDoc(collection(db, "transacoes"), novaTransacao);
     return { sucesso: true };
@@ -171,6 +174,7 @@ export async function salvarContaNoFirebase(dados: SalvarContaProps) {
       dono: dados.dono || null,
       splitRule: { me: dados.porcentagemEu, spouse: dados.porcentagemRay },
       createdAt: new Date().toISOString(),
+      userId: auth.currentUser?.uid,
     };
     await addDoc(collection(db, "contas"), novaConta);
     return { sucesso: true };

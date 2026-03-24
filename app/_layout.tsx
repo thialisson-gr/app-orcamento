@@ -1,39 +1,38 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { Stack } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import 'react-native-reanimated';
-
-import { useColorScheme } from '@/hooks/use-color-scheme';
-
-export const unstable_settings = {
-  initialRouteName: '(tabs)',
-};
+// app/_layout.tsx
+import { Stack, useRouter, useSegments } from 'expo-router';
+import { useEffect } from 'react';
+import { useAuth } from '../hooks/useAuth';
 
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
+  const { user, loadingAuth } = useAuth();
+  const segments = useSegments();
+  const router = useRouter();
+
+  useEffect(() => {
+    // Se o Firebase ainda estiver carregando, espera quietinho.
+    if (loadingAuth) return;
+
+    // Descobre em qual tela o usuário está tentando entrar
+    const inAuthGroup = segments[0] === 'login';
+
+    if (!user && !inAuthGroup) {
+      // NÃO ESTÁ LOGADO? É chutado para a tela de login.
+      router.replace('/login');
+    } else if (user && inAuthGroup) {
+      // JÁ ESTÁ LOGADO e tentou abrir o login? Manda direto pro app!
+      router.replace('/(tabs)');
+    }
+  }, [user, loadingAuth, segments]);
+
+  // Se o Firebase não respondeu ainda, não mostra nada pra não piscar a tela
+  if (loadingAuth) return null;
 
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        
-        {/* Este é o modal padrão que veio no Expo. Você pode apagá-lo depois se não for usar */}
-        <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
-        
-        {/* 👇 NOSSA NOVA TELA DE ADICIONAR TRANSAÇÃO CONFIGURADA COMO MODAL 👇 */}
-        <Stack.Screen 
-          name="add-transaction" 
-          options={{ 
-            presentation: 'modal', 
-            headerShown: false // Deixamos false porque já fizemos nosso botão "X" personalizado na tela
-          }} 
-        />
-        <Stack.Screen 
-          name="add-account" 
-          options={{ presentation: 'modal', headerShown: false }} 
-        />
-      </Stack>
-      <StatusBar style="auto" />
-    </ThemeProvider>
+    <Stack screenOptions={{ headerShown: false }}>
+      {/* O sistema de abas e telas internas */}
+      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      {/* A tela de login (sem botão de voltar) */}
+      <Stack.Screen name="login" options={{ headerShown: false, animation: 'fade' }} />
+    </Stack>
   );
 }
