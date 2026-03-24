@@ -1,18 +1,23 @@
 // app/account/[id].tsx
 import { Ionicons } from '@expo/vector-icons';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, Stack, useLocalSearchParams } from 'expo-router';
 import React, { useState } from 'react';
-import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useAccounts } from '../../hooks/useAccounts';
 import { useTransactions } from '../../hooks/useTransactions';
-import { alternarStatusPagamento, pagarFaturaCompleta } from '../../services/firebase/firestore';
+import { alternarStatusPagamento, deletarTransacaoDoFirebase, pagarFaturaCompleta } from '../../services/firebase/firestore';
 
 const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
-export default function AccountDetailsScreen() {
-  const { nome } = useLocalSearchParams();
-  const { transacoes, loading } = useTransactions();
+export default function AccountDetailScreen() {
+  const { id } = useLocalSearchParams();
+  
+  // 👇 A MÁGICA 1: Decodifica o nome da URL (Ex: "Sal%C3%A1rio" volta a ser "Salário")
+  const nomeConta = id ? decodeURIComponent(id as string) : '';
 
-  // --- ESTADO DO MÊS SELECIONADO ---
+  const { transacoes, loading: loadingTransacoes } = useTransactions();
+  const { contas, loadingContas } = useAccounts();
+
   const [dataFiltro, setDataFiltro] = useState(new Date());
   const mesAtual = dataFiltro.getMonth();
   const anoAtual = dataFiltro.getFullYear();
@@ -21,133 +26,190 @@ export default function AccountDetailsScreen() {
   const irMesAnterior = () => setDataFiltro(new Date(anoAtual, mesAtual - 1, 1));
   const irProximoMes = () => setDataFiltro(new Date(anoAtual, mesAtual + 1, 1));
 
-  // --- FILTRO: APENAS TRANSAÇÕES DA TABELA + DO MÊS SELECIONADO ---
-  const extratoDoMes = transacoes.filter((t) => {
+  if (loadingTransacoes || loadingContas) {
+    return (
+      <View style={styles.center}>
+        <Stack.Screen options={{ headerShown: false }} />
+        <ActivityIndicator size="large" color="#3b82f6" />
+      </View>
+    );
+  }
+
+  const contaAtual = contas.find(c => c.nome === nomeConta);
+  const isReceita = contaAtual?.tipo === 'RECEITA';
+
+  // 👇 A MÁGICA 2: Agora ele filtra usando o nome limpo e decodificado
+  const transacoesDoMes = transacoes.filter(t => {
+    if (t.accountId !== nomeConta) return false;
     const dataPag = new Date(t.paymentDate || t.date);
-    const pertenceAoMes = dataPag.getMonth() === mesAtual && dataPag.getFullYear() === anoAtual;
-    return t.accountId === nome && pertenceAoMes;
+    return dataPag.getMonth() === mesAtual && dataPag.getFullYear() === anoAtual;
   });
 
-  // Calcula quanto da Fatura DESSE MÊS ainda não foi pago
-  const despesasPendentes = extratoDoMes.filter((t) => t.type === 'DESPESA' && !t.isPaid);
-  const totalPendente = despesasPendentes.reduce((soma, t) => soma + t.amount, 0);
+  const transacoesPendentes = transacoesDoMes.filter(t => !t.isPaid);
+  const transacoesPagas = transacoesDoMes.filter(t => t.isPaid);
 
-  const formatarData = (dataIso: string) => {
-    if (!dataIso) return '';
-    const data = new Date(dataIso);
-    return data.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+  const totalGeral = transacoesDoMes.reduce((acc, t) => acc + t.amount, 0);
+  const totalConcluido = transacoesPagas.reduce((acc, t) => acc + t.amount, 0);
+  const totalPendente = transacoesPendentes.reduce((acc, t) => acc + t.amount, 0);
+
+  const handleToggleCheck = async (transacaoId: string, statusAtual: boolean) => {
+    await alternarStatusPagamento(transacaoId, statusAtual);
   };
 
-  const handlePagarTudo = async () => {
-    if (despesasPendentes.length === 0) return Alert.alert('Aviso', 'Não há despesas pendentes nesta fatura.');
-    
-    Alert.alert('Confirmar Pagamento', `Deseja dar baixa em todas as despesas pendentes (R$ ${totalPendente.toFixed(2)}) da fatura de ${mesFormatado}?`, [
+  const handleConcluirTudo = async () => {
+    if (transacoesPendentes.length === 0) return;
+    Alert.alert(
+      isReceita ? 'Receber Tudo' : 'Pagar Fatura',
+      isReceita ? 'Deseja marcar todas as entradas deste mês como recebidas?' : 'Deseja dar baixa em todas as contas deste mês?',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Sim, confirmar', onPress: async () => await pagarFaturaCompleta(transacoesPendentes.map(t => t.id)) }
+      ]
+    );
+  };
+
+  const handleExcluir = (item: any) => {
+    Alert.alert('Apagar Transação', `Deseja excluir "${item.descricao}"?`, [
       { text: 'Cancelar', style: 'cancel' },
-      { text: 'Sim, Pagar Fatura', onPress: async () => {
-          const idsPendentes = despesasPendentes.map(t => t.id);
-          await pagarFaturaCompleta(idsPendentes);
-        }
-      }
+      { text: 'Sim, Apagar', style: 'destructive', onPress: () => deletarTransacaoDoFirebase(item.id) }
     ]);
   };
 
-  if (loading) {
-    return <View style={styles.center}><ActivityIndicator size="large" color="#3b82f6" /></View>;
-  }
+  const formatarData = (dataIso: string) => {
+    if (!dataIso) return '';
+    return new Date(dataIso).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+  };
+
+  const renderItem = (item: any) => (
+    <TouchableOpacity key={item.id} style={styles.transactionItem} activeOpacity={0.7} onLongPress={() => handleExcluir(item)}>
+      <TouchableOpacity style={styles.checkboxArea} onPress={() => handleToggleCheck(item.id, item.isPaid)} activeOpacity={0.6}>
+        <View style={[styles.checkbox, item.isPaid && (isReceita ? styles.checkboxRecebido : styles.checkboxPago)]}>
+          {item.isPaid && <Ionicons name="checkmark" size={16} color="#fff" />}
+        </View>
+      </TouchableOpacity>
+      <View style={styles.transactionDetails}>
+        <Text style={[styles.transactionDesc, item.isPaid && styles.textStrikethrough]} numberOfLines={1}>{item.descricao}</Text>
+        <Text style={styles.transactionMeta}>{item.tags ? item.tags[0] : ''} {item.isInstallment && `• Parcela ${item.installmentDetails?.current}/${item.installmentDetails?.total}`} {item.isFixed && `• Fixo ${item.fixedDetails?.current}/${item.fixedDetails?.total}`}</Text>
+      </View>
+      <View style={styles.transactionRight}>
+        <Text style={[styles.transactionAmount, item.isPaid && styles.textStrikethroughMuted]}>R$ {item.amount.toFixed(2)}</Text>
+        <Text style={styles.transactionDate}>{formatarData(item.paymentDate || item.date)}</Text>
+      </View>
+    </TouchableOpacity>
+  );
 
   return (
     <View style={styles.container}>
-      {/* CABEÇALHO */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+      {/* 👇 A MÁGICA 3: Oculta o cabeçalho feio nativo do sistema */}
+      <Stack.Screen options={{ headerShown: false }} />
+
+      {/* NOVO CABEÇALHO COMPACTO (Nome + Mês juntos) */}
+      <View style={styles.compactHeader}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backButton} activeOpacity={0.7}>
           <Ionicons name="arrow-back" size={24} color="#1f2937" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>{nome}</Text>
+        
+        <View style={styles.headerCenter}>
+          <Text style={styles.headerTitle}>{nomeConta}</Text>
+          <View style={styles.miniMonthSelector}>
+            <TouchableOpacity onPress={irMesAnterior} style={styles.miniArrow}><Ionicons name="chevron-back" size={14} color="#3b82f6" /></TouchableOpacity>
+            <Text style={styles.miniMonthText}>{mesFormatado}</Text>
+            <TouchableOpacity onPress={irProximoMes} style={styles.miniArrow}><Ionicons name="chevron-forward" size={14} color="#3b82f6" /></TouchableOpacity>
+          </View>
+        </View>
+
         <View style={{ width: 40 }} />
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         
-        {/* NAVEGAÇÃO DE MESES */}
-        <View style={styles.monthSelectorContainer}>
-          <TouchableOpacity onPress={irMesAnterior} style={styles.monthArrow}>
-            <Ionicons name="chevron-back" size={20} color="#3b82f6" />
-          </TouchableOpacity>
-          <Text style={styles.monthTextBig}>{mesFormatado}</Text>
-          <TouchableOpacity onPress={irProximoMes} style={styles.monthArrow}>
-            <Ionicons name="chevron-forward" size={20} color="#3b82f6" />
-          </TouchableOpacity>
-        </View>
-
-        {/* RESUMO E BOTÃO DE PAGAR */}
         <View style={styles.summaryCard}>
-          <Text style={styles.summaryLabel}>Total Pendente da Fatura</Text>
-          <Text style={styles.summaryValue}>R$ {totalPendente.toFixed(2)}</Text>
-          <TouchableOpacity 
-            style={[styles.payAllButton, totalPendente === 0 && { backgroundColor: '#93c5fd' }]} 
-            onPress={handlePagarTudo}
-            disabled={totalPendente === 0}
-          >
-            <Ionicons name="checkmark-done" size={20} color="#fff" />
-            <Text style={styles.payAllText}>Pagar Fatura do Mês</Text>
-          </TouchableOpacity>
+          <View style={styles.summaryHeader}>
+            <Text style={styles.summaryTitle}>{isReceita ? 'Total Esperado' : 'Total da Fatura'}</Text>
+            <Text style={styles.summaryTotal}>R$ {totalGeral.toFixed(2)}</Text>
+          </View>
+          <View style={styles.summaryRow}>
+            <View style={styles.summaryCol}>
+              <Text style={styles.summaryLabel}>{isReceita ? 'Já Recebido' : 'Já Pago'}</Text>
+              <Text style={[styles.summaryValue, isReceita ? {color: '#10b981'} : {color: '#3b82f6'}]}>R$ {totalConcluido.toFixed(2)}</Text>
+            </View>
+            <View style={styles.summaryColRight}>
+              <Text style={styles.summaryLabel}>Pendente</Text>
+              <Text style={[styles.summaryValue, totalPendente > 0 ? (isReceita ? {color: '#f59e0b'} : {color: '#ef4444'}) : {color: '#9ca3af'}]}>
+                R$ {totalPendente.toFixed(2)}
+              </Text>
+            </View>
+          </View>
         </View>
 
-        <Text style={styles.sectionTitle}>Lançamentos de {MESES[mesAtual]}</Text>
-
-        {extratoDoMes.length === 0 ? (
-          <Text style={{ textAlign: 'center', color: '#6b7280' }}>Fatura zerada neste mês.</Text>
-        ) : (
-          extratoDoMes.map((item) => (
-            <View key={item.id} style={[styles.transactionItem, item.isPaid && { opacity: 0.6 }]}>
-              <View style={styles.transactionLeft}>
-                <TouchableOpacity 
-                  style={[styles.checkbox, item.isPaid && styles.checkboxPaid]} 
-                  onPress={() => alternarStatusPagamento(item.id, item.isPaid)}
-                >
-                  {item.isPaid && <Ionicons name="checkmark" size={16} color="#ffffff" />}
-                </TouchableOpacity>
-                <View>
-                  <Text style={[styles.transactionDesc, item.isPaid && { textDecorationLine: 'line-through' }]}>
-                    {item.descricao}
-                  </Text>
-                  <Text style={styles.transactionTag}>{item.tags ? item.tags[0] : ''} • Venc: {formatarData(item.paymentDate || item.date)}</Text>
-                </View>
-              </View>
-              <Text style={styles.transactionAmount}>R$ {item.amount.toFixed(2)}</Text>
-            </View>
-          ))
+        {transacoesPendentes.length > 0 && (
+          <View style={styles.listSection}>
+            <Text style={styles.sectionTitle}>Pendentes</Text>
+            {transacoesPendentes.map(renderItem)}
+          </View>
         )}
+
+        {transacoesPagas.length > 0 && (
+          <View style={styles.listSection}>
+            <Text style={styles.sectionTitle}>{isReceita ? 'Recebidos' : 'Pagos'}</Text>
+            {transacoesPagas.map(renderItem)}
+          </View>
+        )}
+
+        {transacoesDoMes.length === 0 && (
+          <View style={styles.emptyState}>
+            <Ionicons name={isReceita ? "wallet-outline" : "receipt-outline"} size={48} color="#d1d5db" />
+            <Text style={styles.emptyText}>Nenhuma movimentação neste mês.</Text>
+          </View>
+        )}
+
       </ScrollView>
+
+      {transacoesPendentes.length > 0 && (
+        <View style={styles.footer}>
+          <TouchableOpacity style={[styles.payAllButton, isReceita && styles.receiveAllButton]} onPress={handleConcluirTudo} activeOpacity={0.8}>
+            <Ionicons name="checkmark-done-circle-outline" size={24} color="#fff" />
+            <Text style={styles.payAllText}>{isReceita ? 'Receber Tudo' : 'Pagar Fatura Completa'}</Text>
+          </TouchableOpacity>
+        </View>
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  container: { flex: 1, backgroundColor: '#f3f4f6' },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 20, paddingTop: 50, backgroundColor: '#ffffff', borderBottomWidth: 1, borderBottomColor: '#e5e7eb' },
-  backButton: { width: 40, height: 40, justifyContent: 'center' },
-  headerTitle: { fontSize: 18, fontWeight: 'bold', color: '#1f2937' },
-  scrollContent: { padding: 20 },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center' }, container: { flex: 1, backgroundColor: '#f3f4f6' },
   
-  monthSelectorContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#ffffff', padding: 12, borderRadius: 16, marginBottom: 20, elevation: 2 },
-  monthArrow: { padding: 8, backgroundColor: '#eff6ff', borderRadius: 8 },
-  monthTextBig: { fontSize: 16, fontWeight: 'bold', color: '#1f2937' },
+  // DESIGN COMPACTO DO CABEÇALHO
+  compactHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: Platform.OS === 'ios' ? 50 : 40, paddingBottom: 16, backgroundColor: '#ffffff', borderBottomWidth: 1, borderBottomColor: '#e5e7eb' },
+  backButton: { width: 40, height: 40, justifyContent: 'center', alignItems: 'flex-start' },
+  headerCenter: { alignItems: 'center' },
+  headerTitle: { fontSize: 18, fontWeight: 'bold', color: '#1f2937', marginBottom: 4 },
+  miniMonthSelector: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f3f4f6', borderRadius: 12, paddingHorizontal: 8, paddingVertical: 4 },
+  miniArrow: { paddingHorizontal: 4 }, miniMonthText: { fontSize: 12, fontWeight: 'bold', color: '#4b5563', marginHorizontal: 8 },
 
-  summaryCard: { backgroundColor: '#1e3a8a', borderRadius: 16, padding: 24, marginBottom: 24, alignItems: 'center', elevation: 5 },
-  summaryLabel: { fontSize: 14, color: 'rgba(255,255,255,0.8)', marginBottom: 8 },
-  summaryValue: { fontSize: 32, fontWeight: 'bold', color: '#ffffff', marginBottom: 16 },
-  payAllButton: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#3b82f6', paddingVertical: 10, paddingHorizontal: 20, borderRadius: 20, gap: 8 },
-  payAllText: { color: '#ffffff', fontWeight: 'bold' },
-
-  sectionTitle: { fontSize: 16, fontWeight: 'bold', color: '#374151', marginBottom: 16 },
+  scrollContent: { padding: 20, paddingBottom: 100 },
   
-  transactionItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#ffffff', padding: 16, borderRadius: 12, marginBottom: 12 },
-  transactionLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
-  checkbox: { width: 24, height: 24, borderRadius: 12, borderWidth: 2, borderColor: '#d1d5db', justifyContent: 'center', alignItems: 'center' },
-  checkboxPaid: { backgroundColor: '#10b981', borderColor: '#10b981' },
-  transactionDesc: { fontSize: 15, fontWeight: '600', color: '#1f2937', paddingRight: 10 },
-  transactionTag: { fontSize: 12, color: '#6b7280', marginTop: 2 },
-  transactionAmount: { fontSize: 16, fontWeight: 'bold', color: '#1f2937' },
+  summaryCard: { backgroundColor: '#ffffff', borderRadius: 16, padding: 16, marginBottom: 24, elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4 },
+  summaryHeader: { alignItems: 'center', marginBottom: 12, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: '#f3f4f6' },
+  summaryTitle: { fontSize: 13, color: '#6b7280', marginBottom: 2 }, summaryTotal: { fontSize: 28, fontWeight: 'bold', color: '#1f2937' },
+  summaryRow: { flexDirection: 'row', justifyContent: 'space-between' }, summaryCol: { flex: 1 }, summaryColRight: { flex: 1, alignItems: 'flex-end' },
+  summaryLabel: { fontSize: 12, color: '#6b7280', marginBottom: 4 }, summaryValue: { fontSize: 16, fontWeight: 'bold' },
+
+  listSection: { marginBottom: 24 }, sectionTitle: { fontSize: 14, fontWeight: 'bold', color: '#6b7280', marginBottom: 12, marginLeft: 4, textTransform: 'uppercase' },
+  
+  transactionItem: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#ffffff', padding: 14, borderRadius: 12, marginBottom: 10 },
+  checkboxArea: { width: 36, height: 36, justifyContent: 'center', alignItems: 'flex-start' },
+  checkbox: { width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: '#d1d5db', justifyContent: 'center', alignItems: 'center' },
+  checkboxPago: { backgroundColor: '#3b82f6', borderColor: '#3b82f6' }, checkboxRecebido: { backgroundColor: '#10b981', borderColor: '#10b981' },
+  transactionDetails: { flex: 1 }, transactionDesc: { fontSize: 15, fontWeight: '600', color: '#1f2937', marginBottom: 2 },
+  transactionMeta: { fontSize: 11, color: '#6b7280' }, transactionRight: { alignItems: 'flex-end' },
+  transactionAmount: { fontSize: 15, fontWeight: 'bold', color: '#1f2937', marginBottom: 2 }, transactionDate: { fontSize: 11, color: '#9ca3af' },
+  
+  textStrikethrough: { textDecorationLine: 'line-through', color: '#9ca3af' }, textStrikethroughMuted: { color: '#9ca3af' },
+  emptyState: { alignItems: 'center', justifyContent: 'center', paddingVertical: 40 }, emptyText: { color: '#9ca3af', marginTop: 12, fontSize: 14 },
+  
+  footer: { position: 'absolute', bottom: 0, left: 0, right: 0, padding: 20, backgroundColor: 'rgba(243,244,246,0.9)' },
+  payAllButton: { flexDirection: 'row', backgroundColor: '#3b82f6', borderRadius: 16, paddingVertical: 14, justifyContent: 'center', alignItems: 'center', gap: 8, elevation: 3 },
+  receiveAllButton: { backgroundColor: '#10b981' }, payAllText: { color: '#ffffff', fontSize: 16, fontWeight: 'bold' },
 });

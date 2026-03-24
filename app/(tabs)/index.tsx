@@ -69,18 +69,17 @@ export default function DashboardScreen() {
   const seuSaldoRestante = suaReceitaTotal - suasDespesasTotais;
   const porcentagemGasta = suaReceitaTotal > 0 ? (suasDespesasTotais / suaReceitaTotal) * 100 : 0;
 
-  // --- AGRUPAR COMPRAS PARCELADAS (TODAS AS RECENTES GERAIS) ---
+  // --- AGRUPAR PARCELADAS E FIXAS NA LISTA RECENTE ---
   const transacoesRecentes: any[] = [];
   const parentIdsVistos = new Set();
 
   transacoes.forEach((t) => {
+    // 1. Agrupa as Parceladas
     if (t.isInstallment && t.installmentDetails?.parentId) {
       if (!parentIdsVistos.has(t.installmentDetails.parentId)) {
         parentIdsVistos.add(t.installmentDetails.parentId);
-        
         const valorTotal = t.amount * t.installmentDetails.total;
         const nomeLimpo = t.descricao.split(' (')[0];
-
         transacoesRecentes.push({
           ...t,
           descricao: `${nomeLimpo} (Em ${t.installmentDetails.total}x)`,
@@ -88,7 +87,20 @@ export default function DashboardScreen() {
           dateParaExibir: t.purchaseDate || t.date 
         });
       }
-    } else {
+    } 
+    // 2. 👈 NOVO: Agrupa as Fixas/Recorrentes (ex: Salário)
+    else if (t.isFixed && t.fixedDetails?.parentId) {
+      if (!parentIdsVistos.has(t.fixedDetails.parentId)) {
+        parentIdsVistos.add(t.fixedDetails.parentId);
+        transacoesRecentes.push({
+          ...t,
+          descricao: `${t.descricao} (${t.fixedDetails.current}/${t.fixedDetails.total})`,
+          dateParaExibir: t.purchaseDate || t.date
+        });
+      }
+    } 
+    // 3. Transações únicas normais
+    else {
       transacoesRecentes.push({
         ...t,
         dateParaExibir: t.purchaseDate || t.date
