@@ -212,3 +212,14 @@ export async function deletarTransacaoDoFirebase(id: string) {
     return false;
   }
 }
+
+export async function deletarContaNoFirebase(id: string) {
+  try {
+    const docRef = doc(db, "contas", id);
+    await deleteDoc(docRef);
+    return true;
+  } catch (erro) {
+    console.error("Erro ao apagar conta:", erro);
+    return false;
+  }
+}
