@@ -4,7 +4,10 @@ import {
   collection,
   deleteDoc,
   doc,
+  getDocs,
+  query,
   updateDoc,
+  where,
   writeBatch,
 } from "firebase/firestore";
 import { db } from "./config";
@@ -221,5 +224,44 @@ export async function deletarContaNoFirebase(id: string) {
   } catch (erro) {
     console.error("Erro ao apagar conta:", erro);
     return false;
+  }
+}
+
+export async function atualizarContaNoFirebase(
+  id: string,
+  nomeAntigo: string,
+  dados: any,
+) {
+  try {
+    const batch = writeBatch(db);
+
+    // 1. Atualiza os dados da Conta
+    const contaRef = doc(db, "contas", id);
+    batch.update(contaRef, {
+      nome: dados.nome,
+      tipo: dados.tipo,
+      dono: dados.dono || null,
+      splitRule: { me: dados.porcentagemEu, spouse: dados.porcentagemRay },
+    });
+
+    // 2. Se você mudou o nome da tabela, ele atualiza todas as transações antigas!
+    if (nomeAntigo !== dados.nome) {
+      const q = query(
+        collection(db, "transacoes"),
+        where("accountId", "==", nomeAntigo),
+      );
+      const querySnapshot = await getDocs(q);
+      querySnapshot.forEach((documento) => {
+        batch.update(doc(db, "transacoes", documento.id), {
+          accountId: dados.nome,
+        });
+      });
+    }
+
+    await batch.commit();
+    return { sucesso: true };
+  } catch (erro) {
+    console.error("Erro ao atualizar conta:", erro);
+    return { sucesso: false, erro };
   }
 }
