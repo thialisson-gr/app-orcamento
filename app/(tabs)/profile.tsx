@@ -2,38 +2,148 @@
 import { Ionicons } from '@expo/vector-icons';
 import { signOut } from 'firebase/auth';
 import React, { useState } from 'react';
-import { Alert, Platform, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Platform, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
+import { useTransactions } from '../../hooks/useTransactions';
 import { auth } from '../../services/firebase/config';
+
+// 👇 Importando as ferramentas nativas de exportação
+import * as FileSystem from 'expo-file-system';
+import * as Print from 'expo-print';
+import * as Sharing from 'expo-sharing';
 
 export default function ProfileScreen() {
   const [isDarkMode, setIsDarkMode] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
 
-  // 👇 Pega os dados reais de quem está logado no momento!
+  // Precisamos puxar as transações para poder exportá-las
+  const { transacoes } = useTransactions();
+
   const user = auth.currentUser;
   const emailLogado = user?.email || 'Usuário Desconhecido';
   const inicial = emailLogado.charAt(0).toUpperCase();
-  const nomeExibicao = emailLogado.split('@')[0]; // Pega a parte antes do @ para ser o "nome"
+  const nomeExibicao = emailLogado.split('@')[0];
 
   const handleLogout = () => {
-    Alert.alert(
-      'Sair da Conta',
-      'Tem certeza que deseja sair do aplicativo?',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        { 
-          text: 'Sair', 
-          style: 'destructive', 
-          onPress: async () => {
-            // 👇 Desloga do Firebase! O sistema vai perceber e te jogar pro Login na hora.
-            await signOut(auth);
-          } 
-        }
-      ]
-    );
+    Alert.alert('Sair da Conta', 'Tem certeza que deseja sair do aplicativo?', [
+      { text: 'Cancelar', style: 'cancel' },
+      { text: 'Sair', style: 'destructive', onPress: async () => await signOut(auth) }
+    ]);
   };
 
-  const handleExportData = () => {
-    Alert.alert('Exportar Dados', 'Em breve! Vamos gerar um PDF/Excel lindo com seus dados.');
+  // --- MÓDULO DE EXPORTAÇÃO ---
+  const formatarMoeda = (valor: number) => `R$ ${valor.toFixed(2).replace('.', ',')}`;
+  const formatarData = (dataIso: string) => new Date(dataIso).toLocaleDateString('pt-BR');
+
+  const gerarPDF = async () => {
+    setIsExporting(true);
+    try {
+      // Montando a tabela de transações em HTML (Design do PDF)
+      const linhasTabela = transacoes.map(t => `
+        <tr>
+          <td style="padding: 8px; border-bottom: 1px solid #ddd;">${formatarData(t.paymentDate || t.date)}</td>
+          <td style="padding: 8px; border-bottom: 1px solid #ddd;">${t.descricao}</td>
+          <td style="padding: 8px; border-bottom: 1px solid #ddd;">${t.accountId}</td>
+          <td style="padding: 8px; border-bottom: 1px solid #ddd; color: ${t.type === 'RECEITA' ? 'green' : 'red'};">
+            ${t.type === 'RECEITA' ? '+' : '-'}${formatarMoeda(t.amount)}
+          </td>
+          <td style="padding: 8px; border-bottom: 1px solid #ddd;">${t.isPaid ? 'Concluído' : 'Pendente'}</td>
+        </tr>
+      `).join('');
+
+      const htmlContent = `
+        <html>
+          <head>
+            <style>
+              body { font-family: Helvetica, Arial, sans-serif; padding: 20px; color: #333; }
+              h1 { color: #1e3a8a; text-align: center; }
+              table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 14px; }
+              th { background-color: #f3f4f6; padding: 10px; text-align: left; border-bottom: 2px solid #ccc; }
+            </style>
+          </head>
+          <body>
+            <h1>Relatório Financeiro</h1>
+            <p><strong>Usuário:</strong> ${nomeExibicao}</p>
+            <p><strong>Gerado em:</strong> ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR')}</p>
+            
+            <table>
+              <thead>
+                <tr>
+                  <th>Data</th>
+                  <th>Descrição</th>
+                  <th>Tabela/Conta</th>
+                  <th>Valor</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${linhasTabela || '<tr><td colspan="5" style="text-align: center; padding: 10px;">Nenhuma transação encontrada.</td></tr>'}
+              </tbody>
+            </table>
+          </body>
+        </html>
+      `;
+
+      // Cria o arquivo PDF invisível no celular
+      const { uri } = await Print.printToFileAsync({ html: htmlContent });
+      // Abre a tela de compartilhar do celular (WhatsApp, Drive, Email...)
+      await Sharing.shareAsync(uri, { UTI: '.pdf', mimeType: 'application/pdf' });
+
+    } catch (error) {
+      Alert.alert('Erro', 'Não foi possível gerar o PDF.');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const gerarCSV = async () => {
+    setIsExporting(true);
+    try {
+      let csvString = "Data,Descricao,Categoria,Conta,Tipo,Valor,Status\n";
+
+      transacoes.forEach(t => {
+        const data = formatarData(t.paymentDate || t.date);
+        const desc = t.descricao.replace(/,/g, ' '); // Trocando vírgula por espaço para não quebrar colunas
+        const categoria = t.tags ? t.tags[0] : '';
+        const conta = t.accountId;
+        const tipo = t.type;
+        const valor = t.amount.toFixed(2);
+        const status = t.isPaid ? 'Pago' : 'Pendente';
+        
+        csvString += `${data},${desc},${categoria},${conta},${tipo},${valor},${status}\n`;
+      });
+
+      // ESTRATÉGIA NOVA 1: Nome único para não dar conflito de arquivo duplicado no cache
+      const nomeArquivo = `relatorio_${Date.now()}.csv`;
+      const file = new FileSystem.File(FileSystem.Paths.cache, nomeArquivo);
+
+      // Escreve usando o novo API de FileSystem (Paths + File) e encoding diretamente como string
+      file.write(csvString, { encoding: 'utf8' });
+
+      // ESTRATÉGIA NOVA 2: Compartilhamento bruto. Sem forçar UTI ou MimeType. O Android que lute.
+      await Sharing.shareAsync(file.uri, { dialogTitle: 'Exportar Planilha' });
+
+    } catch (error: any) {
+      // ESTRATÉGIA NOVA 3: O App agora é obrigado a "dedurar" o erro real.
+      Alert.alert('Erro ao exportar', error.message || 'Falha desconhecida pelo sistema.');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleMenuExportar = () => {
+    if (transacoes.length === 0) {
+      return Alert.alert('Aviso', 'Você não possui transações para exportar ainda.');
+    }
+
+    Alert.alert(
+      'Exportar Relatório',
+      'Como deseja exportar os seus dados?',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: '📄 Arquivo PDF', onPress: gerarPDF },
+        { text: '📊 Planilha Excel (CSV)', onPress: gerarCSV }
+      ]
+    );
   };
 
   return (
@@ -87,10 +197,11 @@ export default function ProfileScreen() {
 
           <View style={styles.divider} />
 
-          <TouchableOpacity style={styles.menuItem} onPress={handleExportData} activeOpacity={0.7}>
+          {/* 👇 Botão de Exportar atualizado! */}
+          <TouchableOpacity style={styles.menuItem} onPress={handleMenuExportar} activeOpacity={0.7} disabled={isExporting}>
             <View style={styles.menuItemLeft}>
               <View style={[styles.menuIconBox, { backgroundColor: '#ecfdf5' }]}>
-                <Ionicons name="download" size={20} color="#10b981" />
+                {isExporting ? <ActivityIndicator color="#10b981" /> : <Ionicons name="download" size={20} color="#10b981" />}
               </View>
               <Text style={styles.menuItemText}>Exportar Planilha / PDF</Text>
             </View>
