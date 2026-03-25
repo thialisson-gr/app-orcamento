@@ -1,30 +1,41 @@
 // hooks/useTransactions.ts
-import { collection, onSnapshot, orderBy, query } from "firebase/firestore";
+import { collection, onSnapshot, query } from "firebase/firestore";
 import { useEffect, useState } from "react";
 import { db } from "../services/firebase/config";
+import { useAccounts } from "./useAccounts"; // 👈 Importamos o leitor de contas!
 
 export function useTransactions() {
-  const [transacoes, setTransacoes] = useState<any[]>([]);
+  const [todasTransacoes, setTodasTransacoes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Vamos buscar a lista de contas que este utilizador tem permissão para ver
+  const { contas, loadingContas } = useAccounts();
+
   useEffect(() => {
-    // Cria uma "query" (consulta) pedindo as transações ordenadas pela data mais recente
-    const q = query(collection(db, "transacoes"), orderBy("date", "desc"));
+    const q = query(collection(db, "transacoes"));
 
-    // O onSnapshot fica "escutando" o banco em tempo real
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const dados = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+      const lista: any[] = [];
+      querySnapshot.forEach((doc) => {
+        lista.push({ id: doc.id, ...doc.data() });
+      });
 
-      setTransacoes(dados);
+      setTodasTransacoes(lista);
       setLoading(false);
     });
 
-    // Se a tela for fechada, ele para de escutar para economizar bateria e internet
     return () => unsubscribe();
   }, []);
 
-  return { transacoes, loading };
+  // O FILTRO DE SEGURANÇA DEFINITIVO:
+  // O utilizador só pode ver as transações que pertencem às tabelas a que ele tem acesso.
+  const nomesContasVisiveis = contas.map((c) => c.nome);
+  const transacoes = todasTransacoes.filter((t) =>
+    nomesContasVisiveis.includes(t.accountId),
+  );
+
+  // Só dizemos que terminou de carregar quando as duas coisas estiverem prontas
+  const isLoadingGeral = loading || loadingContas;
+
+  return { transacoes, loading: isLoadingGeral };
 }
