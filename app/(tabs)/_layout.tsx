@@ -51,6 +51,16 @@ export default function TabLayout() {
         }}
       />
 
+      <Tabs.Screen
+        name="stats"
+        options={{
+          title: 'Gráficos',
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons name={focused ? 'pie-chart' : 'pie-chart-outline'} size={24} color={color} />
+          ),
+        }}
+      />
+
       {/* ABA 3: PERFIL E CONFIGURAÇÕES */}
       <Tabs.Screen
         name="profile"
@@ -81,7 +91,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 10,
     backgroundColor: '#ffffff',
-    borderRadius: 32, // Formato de pílula
+    borderRadius: 16, // Formato de pílula
     height: 50, // Altura perfeita
     borderTopWidth: 0,
     paddingBottom: 0, // 👈 O SEGREDO AQUI: Impede o celular de empurrar o ícone

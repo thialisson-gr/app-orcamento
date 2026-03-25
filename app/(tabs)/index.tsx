@@ -137,7 +137,7 @@ export default function DashboardScreen() {
         
         {/* CABEÇALHO */}
         <View style={styles.header}>
-          <View>
+          <View style={{ flex: 1, paddingRight: 10 }}>
             <Text style={styles.greeting}>Olá!</Text>
             <Text style={styles.subGreeting}>Aqui está o resumo do mês.</Text>
           </View>
@@ -275,11 +275,11 @@ export default function DashboardScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f3f4f6' },
   scrollContent: { padding: 20, paddingBottom: 110 }, 
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24, marginTop: 50 },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, marginTop: 50 },
   greeting: { fontSize: 26, fontWeight: 'bold', color: '#1f2937' },
   subGreeting: { fontSize: 14, color: '#6b7280', marginTop: 2 },
   monthSelector: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 20, borderWidth: 1, borderColor: '#e5e7eb' },
-  monthText: { fontSize: 14, color: '#3b82f6', fontWeight: 'bold', marginHorizontal: 8, minWidth: 100, textAlign: 'center' },
+  monthText: { fontSize: 14, color: '#3b82f6', fontWeight: 'bold', marginHorizontal: 4, width: 95, textAlign: 'center' },
   
   personalFlowCard: { borderRadius: 24, padding: 24, marginBottom: 20, elevation: 5, shadowColor: '#1e3a8a', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.2, shadowRadius: 15 },
   personalFlowHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
