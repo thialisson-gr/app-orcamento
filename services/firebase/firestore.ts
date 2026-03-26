@@ -4,11 +4,13 @@ import {
   collection,
   deleteDoc,
   doc,
+  getDoc,
   getDocs,
   query,
+  setDoc,
   updateDoc,
   where,
-  writeBatch,
+  writeBatch
 } from "firebase/firestore";
 import { auth, db } from "./config";
 
@@ -272,4 +274,24 @@ export async function atualizarTransacaoNoFirebase(id: string, dados: any) {
   } catch (erro) {
     return { sucesso: false, erro };
   }
+}
+
+// --- CONFIGURAÇÕES DE USUÁRIO ---
+export async function salvarRegraPadrao(porcentagemEu: number, porcentagemRay: number) {
+  if (!auth.currentUser) return;
+  // Salva no banco de dados um documento com o ID do usuário logado
+  const userRef = doc(db, 'usuarios', auth.currentUser.uid);
+  await setDoc(userRef, { regraPadrao: { me: porcentagemEu, spouse: porcentagemRay } }, { merge: true });
+}
+
+export async function buscarRegraPadrao() {
+  if (!auth.currentUser) return { me: 50, spouse: 50 }; // Retorna 50/50 como segurança
+  
+  const userRef = doc(db, 'usuarios', auth.currentUser.uid);
+  const snap = await getDoc(userRef);
+  
+  if (snap.exists() && snap.data().regraPadrao) {
+    return snap.data().regraPadrao;
+  }
+  return { me: 50, spouse: 50 }; // Padrão se for a primeira vez
 }

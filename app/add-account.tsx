@@ -1,9 +1,9 @@
 // app/add-account.tsx
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { salvarContaNoFirebase } from '../services/firebase/firestore';
+import { buscarRegraPadrao, salvarContaNoFirebase } from '../services/firebase/firestore'; // 👈 Adicione buscarRegraPadrao
 
 export default function AddAccountScreen() {
   const [fluxo, setFluxo] = useState<'DESPESA' | 'RECEITA'>('DESPESA');
@@ -11,6 +11,14 @@ export default function AddAccountScreen() {
   const [tipo, setTipo] = useState<'COMUM' | 'INDIVIDUAL' | 'TERCEIROS'>('COMUM');
   const [dono, setDono] = useState<'EU' | 'RAY'>('EU');
   const [porcentagemEu, setPorcentagemEu] = useState('50');
+
+  useEffect(() => {
+    // Quando a tela carrega, ele puxa apenas a sua parte. 
+    // O próprio app já calcula a parte da Ray automaticamente (100 - sua parte)!
+    buscarRegraPadrao().then(regra => {
+      setPorcentagemEu(regra.me);
+    });
+  }, []);
 
   const handleSalvar = async () => {
     if (!nome.trim()) {
