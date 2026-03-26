@@ -3,12 +3,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import React, { useState } from 'react';
 import { ActivityIndicator, Alert, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useTheme } from '../hooks/useTheme'; // 👈 TEMA AQUI
 import { atualizarContaNoFirebase } from '../services/firebase/firestore';
 
 export default function EditAccountScreen() {
   const params = useLocalSearchParams();
+  const { colors, isDarkMode } = useTheme(); // 👈 PUXANDO CORES
   
-  // Resgata os dados antigos da tabela
   const id = params.id as string;
   const nomeOriginal = params.nomeOriginal as string;
   const fluxo = params.tipoOriginal === 'RECEITA' ? 'RECEITA' : 'DESPESA';
@@ -21,79 +22,62 @@ export default function EditAccountScreen() {
 
   const handleSalvar = async () => {
     if (!nome.trim()) return Alert.alert('Atenção', 'O nome não pode ficar vazio.');
-
     setIsLoading(true);
     const percEu = parseInt(porcentagemEu) || 0;
     const percRay = 100 - percEu;
-
     const resultado = await atualizarContaNoFirebase(id, nomeOriginal, {
-      nome,
-      tipo: fluxo === 'RECEITA' ? 'RECEITA' : tipo,
-      dono: fluxo === 'RECEITA' ? null : (tipo === 'INDIVIDUAL' ? dono : null),
-      porcentagemEu: fluxo === 'RECEITA' ? 100 : (tipo === 'COMUM' ? percEu : (tipo === 'INDIVIDUAL' && dono === 'EU' ? 100 : 0)),
-      porcentagemRay: fluxo === 'RECEITA' ? 0 : (tipo === 'COMUM' ? percRay : (tipo === 'INDIVIDUAL' && dono === 'RAY' ? 100 : 0)),
+      nome, tipo: fluxo === 'RECEITA' ? 'RECEITA' : tipo, dono: fluxo === 'RECEITA' ? null : (tipo === 'INDIVIDUAL' ? dono : null), porcentagemEu: fluxo === 'RECEITA' ? 100 : (tipo === 'COMUM' ? percEu : (tipo === 'INDIVIDUAL' && dono === 'EU' ? 100 : 0)), porcentagemRay: fluxo === 'RECEITA' ? 0 : (tipo === 'COMUM' ? percRay : (tipo === 'INDIVIDUAL' && dono === 'RAY' ? 100 : 0)),
     });
-
     setIsLoading(false);
-
-    if (resultado.sucesso) {
-      router.back();
-    } else {
-      Alert.alert('Erro', 'Não foi possível atualizar a tabela.');
-    }
+    if (resultado.sucesso) router.back(); else Alert.alert('Erro', 'Não foi possível atualizar a tabela.');
   };
 
   return (
-    <View style={styles.container}>
-      {/* 👇 Oculta o cabeçalho feio nativo do sistema */}
+    <View style={[styles.container, { backgroundColor: colors.card }]}>
       <Stack.Screen options={{ headerShown: false }} />
 
-      {/* NOVO CABEÇALHO COMPACTO */}
-      <View style={styles.compactHeader}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton} activeOpacity={0.7}>
-          <Ionicons name="arrow-back" size={24} color="#1f2937" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Editar Tabela</Text>
+      <View style={[styles.compactHeader, { backgroundColor: colors.card, borderBottomColor: isDarkMode ? '#374151' : '#e5e7eb' }]}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backButton} activeOpacity={0.7}><Ionicons name="arrow-back" size={24} color={colors.text} /></TouchableOpacity>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>Editar Tabela</Text>
         <View style={{ width: 40 }} />
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        
-        <View style={styles.infoBox}>
-          <Ionicons name="information-circle" size={20} color="#3b82f6" />
-          <Text style={styles.infoText}>Se você mudar o nome da tabela, todas as transações antigas serão atualizadas automaticamente para o novo nome.</Text>
+        <View style={[styles.infoBox, { backgroundColor: isDarkMode ? '#1e3a8a' : '#eff6ff' }]}>
+          <Ionicons name="information-circle" size={20} color={colors.accent} />
+          <Text style={[styles.infoText, { color: isDarkMode ? '#bfdbfe' : '#1e3a8a' }]}>Se você mudar o nome da tabela, todas as transações antigas serão atualizadas automaticamente para o novo nome.</Text>
         </View>
 
         <View style={styles.formGroup}>
-          <Text style={styles.label}>Nome da Tabela</Text>
-          <TextInput style={styles.input} value={nome} onChangeText={setNome} />
+          <Text style={[styles.label, { color: colors.text }]}>Nome da Tabela</Text>
+          <TextInput style={[styles.input, { backgroundColor: isDarkMode ? '#111827' : '#f9fafb', borderColor: isDarkMode ? '#374151' : '#e5e7eb', color: colors.text }]} value={nome} onChangeText={setNome} />
         </View>
 
         {fluxo === 'DESPESA' && (
           <>
             <View style={styles.formGroup}>
-              <Text style={styles.label}>Como essa tabela funciona?</Text>
+              <Text style={[styles.label, { color: colors.text }]}>Como essa tabela funciona?</Text>
               <View style={styles.row}>
-                <TouchableOpacity style={[styles.chip, tipo === 'COMUM' && styles.chipActive]} onPress={() => setTipo('COMUM')}><Text style={[styles.chipText, tipo === 'COMUM' && styles.chipTextActive]}>Dividir</Text></TouchableOpacity>
-                <TouchableOpacity style={[styles.chip, tipo === 'INDIVIDUAL' && styles.chipActive]} onPress={() => setTipo('INDIVIDUAL')}><Text style={[styles.chipText, tipo === 'INDIVIDUAL' && styles.chipTextActive]}>Individual</Text></TouchableOpacity>
-                <TouchableOpacity style={[styles.chip, tipo === 'TERCEIROS' && styles.chipActive]} onPress={() => setTipo('TERCEIROS')}><Text style={[styles.chipText, tipo === 'TERCEIROS' && styles.chipTextActive]}>Terceiros</Text></TouchableOpacity>
+                <TouchableOpacity style={[styles.chip, { backgroundColor: isDarkMode ? '#374151' : '#f3f4f6', borderColor: isDarkMode ? '#4b5563' : '#e5e7eb' }, tipo === 'COMUM' && { backgroundColor: isDarkMode ? '#1e3a8a' : '#eff6ff', borderColor: colors.accent }]} onPress={() => setTipo('COMUM')}><Text style={[styles.chipText, { color: isDarkMode ? '#d1d5db' : '#6b7280' }, tipo === 'COMUM' && { color: colors.accent, fontWeight: 'bold' }]}>Dividir</Text></TouchableOpacity>
+                <TouchableOpacity style={[styles.chip, { backgroundColor: isDarkMode ? '#374151' : '#f3f4f6', borderColor: isDarkMode ? '#4b5563' : '#e5e7eb' }, tipo === 'INDIVIDUAL' && { backgroundColor: isDarkMode ? '#1e3a8a' : '#eff6ff', borderColor: colors.accent }]} onPress={() => setTipo('INDIVIDUAL')}><Text style={[styles.chipText, { color: isDarkMode ? '#d1d5db' : '#6b7280' }, tipo === 'INDIVIDUAL' && { color: colors.accent, fontWeight: 'bold' }]}>Individual</Text></TouchableOpacity>
+                <TouchableOpacity style={[styles.chip, { backgroundColor: isDarkMode ? '#374151' : '#f3f4f6', borderColor: isDarkMode ? '#4b5563' : '#e5e7eb' }, tipo === 'TERCEIROS' && { backgroundColor: isDarkMode ? '#1e3a8a' : '#eff6ff', borderColor: colors.accent }]} onPress={() => setTipo('TERCEIROS')}><Text style={[styles.chipText, { color: isDarkMode ? '#d1d5db' : '#6b7280' }, tipo === 'TERCEIROS' && { color: colors.accent, fontWeight: 'bold' }]}>Terceiros</Text></TouchableOpacity>
               </View>
             </View>
 
             {tipo === 'COMUM' && (
               <View style={styles.formGroup}>
-                <Text style={styles.label}>Qual a sua porcentagem? (%)</Text>
-                <TextInput style={styles.input} keyboardType="numeric" value={porcentagemEu} onChangeText={setPorcentagemEu} />
+                <Text style={[styles.label, { color: colors.text }]}>Qual a sua porcentagem? (%)</Text>
+                <TextInput style={[styles.input, { backgroundColor: isDarkMode ? '#111827' : '#f9fafb', borderColor: isDarkMode ? '#374151' : '#e5e7eb', color: colors.text }]} keyboardType="numeric" value={porcentagemEu} onChangeText={setPorcentagemEu} />
                 <Text style={styles.helperText}>A parte da Ray será calculada automaticamente.</Text>
               </View>
             )}
 
             {tipo === 'INDIVIDUAL' && (
               <View style={styles.formGroup}>
-                <Text style={styles.label}>De quem é essa tabela?</Text>
+                <Text style={[styles.label, { color: colors.text }]}>De quem é essa tabela?</Text>
                 <View style={styles.row}>
-                  <TouchableOpacity style={[styles.chip, dono === 'EU' && styles.chipActive]} onPress={() => setDono('EU')}><Text style={[styles.chipText, dono === 'EU' && styles.chipTextActive]}>Minha</Text></TouchableOpacity>
-                  <TouchableOpacity style={[styles.chip, dono === 'RAY' && styles.chipActive]} onPress={() => setDono('RAY')}><Text style={[styles.chipText, dono === 'RAY' && styles.chipTextActive]}>Da Ray</Text></TouchableOpacity>
+                  <TouchableOpacity style={[styles.chip, { backgroundColor: isDarkMode ? '#374151' : '#f3f4f6', borderColor: isDarkMode ? '#4b5563' : '#e5e7eb' }, dono === 'EU' && { backgroundColor: isDarkMode ? '#1e3a8a' : '#eff6ff', borderColor: colors.accent }]} onPress={() => setDono('EU')}><Text style={[styles.chipText, { color: isDarkMode ? '#d1d5db' : '#6b7280' }, dono === 'EU' && { color: colors.accent, fontWeight: 'bold' }]}>Minha</Text></TouchableOpacity>
+                  <TouchableOpacity style={[styles.chip, { backgroundColor: isDarkMode ? '#374151' : '#f3f4f6', borderColor: isDarkMode ? '#4b5563' : '#e5e7eb' }, dono === 'RAY' && { backgroundColor: isDarkMode ? '#1e3a8a' : '#eff6ff', borderColor: colors.accent }]} onPress={() => setDono('RAY')}><Text style={[styles.chipText, { color: isDarkMode ? '#d1d5db' : '#6b7280' }, dono === 'RAY' && { color: colors.accent, fontWeight: 'bold' }]}>Da Ray</Text></TouchableOpacity>
                 </View>
               </View>
             )}
@@ -101,27 +85,13 @@ export default function EditAccountScreen() {
         )}
       </ScrollView>
 
-      <View style={styles.footer}>
-        <TouchableOpacity style={[styles.saveButton, isLoading && {opacity: 0.7}]} onPress={handleSalvar} activeOpacity={0.8} disabled={isLoading}>
-          {isLoading ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveButtonText}>Salvar Alterações</Text>}
-        </TouchableOpacity>
+      <View style={[styles.footer, { backgroundColor: colors.card, borderTopColor: isDarkMode ? '#374151' : '#f3f4f6' }]}>
+        <TouchableOpacity style={[styles.saveButton, { backgroundColor: colors.accent }, isLoading && {opacity: 0.7}]} onPress={handleSalvar} activeOpacity={0.8} disabled={isLoading}>{isLoading ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveButtonText}>Salvar Alterações</Text>}</TouchableOpacity>
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#ffffff' },
-  
-  // DESIGN COMPACTO DO CABEÇALHO
-  compactHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: Platform.OS === 'ios' ? 50 : 40, paddingBottom: 16, backgroundColor: '#ffffff', borderBottomWidth: 1, borderBottomColor: '#e5e7eb' },
-  backButton: { width: 40, height: 40, justifyContent: 'center', alignItems: 'flex-start' },
-  headerTitle: { fontSize: 18, fontWeight: 'bold', color: '#1f2937' },
-  
-  scrollContent: { padding: 20 },
-  infoBox: { flexDirection: 'row', backgroundColor: '#eff6ff', padding: 16, borderRadius: 12, marginBottom: 24, alignItems: 'center', gap: 10 },
-  infoText: { flex: 1, color: '#1e3a8a', fontSize: 13, lineHeight: 18 },
-  formGroup: { marginBottom: 24 }, label: { fontSize: 14, fontWeight: '600', color: '#374151', marginBottom: 8 }, input: { backgroundColor: '#f9fafb', borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 12, padding: 16, fontSize: 16, color: '#1f2937' }, helperText: { fontSize: 12, color: '#6b7280', marginTop: 8 },
-  row: { flexDirection: 'row', gap: 12 }, chip: { flex: 1, backgroundColor: '#f3f4f6', paddingVertical: 12, borderRadius: 12, alignItems: 'center', borderWidth: 1, borderColor: '#e5e7eb' }, chipActive: { backgroundColor: '#eff6ff', borderColor: '#3b82f6' }, chipText: { fontSize: 14, color: '#6b7280', fontWeight: '500' }, chipTextActive: { color: '#3b82f6', fontWeight: 'bold' },
-  footer: { padding: 20, borderTopWidth: 1, borderTopColor: '#f3f4f6', backgroundColor: '#ffffff' }, saveButton: { backgroundColor: '#3b82f6', borderRadius: 16, paddingVertical: 18, alignItems: 'center' }, saveButtonText: { color: '#ffffff', fontSize: 16, fontWeight: 'bold' },
+  container: { flex: 1 }, compactHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: Platform.OS === 'ios' ? 50 : 40, paddingBottom: 16, borderBottomWidth: 1 }, backButton: { width: 40, height: 40, justifyContent: 'center', alignItems: 'flex-start' }, headerTitle: { fontSize: 18, fontWeight: 'bold' }, scrollContent: { padding: 20 }, infoBox: { flexDirection: 'row', padding: 16, borderRadius: 12, marginBottom: 24, alignItems: 'center', gap: 10 }, infoText: { flex: 1, fontSize: 13, lineHeight: 18 }, formGroup: { marginBottom: 24 }, label: { fontSize: 14, fontWeight: '600', marginBottom: 8 }, input: { borderWidth: 1, borderRadius: 12, padding: 16, fontSize: 16 }, helperText: { fontSize: 12, color: '#6b7280', marginTop: 8 }, row: { flexDirection: 'row', gap: 12 }, chip: { flex: 1, paddingVertical: 12, borderRadius: 12, alignItems: 'center', borderWidth: 1 }, chipText: { fontSize: 14, fontWeight: '500' }, footer: { padding: 20, borderTopWidth: 1 }, saveButton: { borderRadius: 16, paddingVertical: 18, alignItems: 'center' }, saveButtonText: { color: '#ffffff', fontSize: 16, fontWeight: 'bold' },
 });
