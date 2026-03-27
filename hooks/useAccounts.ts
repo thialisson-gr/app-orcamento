@@ -1,32 +1,41 @@
 // hooks/useAccounts.ts
 import { collection, onSnapshot, query } from "firebase/firestore";
 import { useEffect, useState } from "react";
-import { auth, db } from "../services/firebase/config";
+import { db } from "../services/firebase/config"; // 👈 Ajustado o caminho!
+import { useIdentity } from "./useIdentity"; // 👈 Importamos o Cérebro de Identidade!
 
 export function useAccounts() {
   const [contas, setContas] = useState<any[]>([]);
   const [loadingContas, setLoadingContas] = useState(true);
+  
+  // Pergunta pro app: Quem está segurando esse celular? ("EU" ou "RAY")
+  const { perfil, loadingIdentity } = useIdentity(); 
 
   useEffect(() => {
+    // Se ainda está descobrindo quem é o usuário, não faz nada
+    if (loadingIdentity) return;
+
     const q = query(collection(db, "contas"));
 
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
       const listaContas: any[] = [];
-      const currentUserUid = auth.currentUser?.uid;
 
       querySnapshot.forEach((doc) => {
         const data = doc.data();
 
-        // REGRAS DE VISIBILIDADE (A Mágica da Separação):
-        // 1. É uma conta comum? Todo a gente vê.
-        const isComum = data.tipo === "COMUM";
-        // 2. Fui eu que criei (Carimbo de Dono)? Eu vejo.
-        const isDono = data.userId === currentUserUid;
-        // 3. Foi criada antes de termos a regra de dono? Mostra para não perdermos o histórico antigo.
-        const isAntiga = !data.userId;
-
-        // Se passar nalguma destas regras, a tabela aparece para o utilizador!
-        if (isComum || isDono || isAntiga) {
+        // 🛡️ REGRAS DO MODO BANCO (A Separação Absoluta)
+        // Se a conta for INDIVIDUAL e tiver um dono registrado:
+        if (data.tipo === "INDIVIDUAL" && data.dono) {
+          
+          // Só mostra se o dono da conta for a mesma pessoa segurando o celular
+          if (data.dono === perfil) {
+            listaContas.push({ id: doc.id, ...data });
+          }
+          // Se for do outro, ela simplesmente não existe pra esse celular!
+          
+        } else {
+          // Contas do tipo COMUM, TERCEIROS, RECEITA, ou contas muito antigas sem dono:
+          // Ambos podem ver e interagir.
           listaContas.push({ id: doc.id, ...data });
         }
       });
@@ -36,7 +45,7 @@ export function useAccounts() {
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [perfil, loadingIdentity]);
 
-  return { contas, loadingContas };
+  return { contas, loadingContas: loadingContas || loadingIdentity };
 }
