@@ -49,13 +49,10 @@ const gerarIdUnico = () => {
 
 export async function salvarTransacaoNoFirebase(dados: SalvarTransacaoProps) {
   try {
-    const valorLimpo = dados.valorFormatado
-      .replace(/\./g, "")
-      .replace(",", ".");
+    const valorLimpo = dados.valorFormatado.replace(/\./g, "").replace(",", ".");
     const valorNumerico = parseFloat(valorLimpo);
 
-    if (isNaN(valorNumerico) || valorNumerico <= 0)
-      throw new Error("Valor inválido");
+    if (isNaN(valorNumerico) || valorNumerico <= 0) throw new Error("Valor inválido");
 
     const dataCompra = new Date();
     let dataBasePagamento = new Date();
@@ -67,7 +64,6 @@ export async function salvarTransacaoNoFirebase(dados: SalvarTransacaoProps) {
 
     if (dados.isParcelado && dados.tipo === "DESPESA") {
       const numeroParcelas = parseInt(dados.qtdParcelas);
-      // 👇 MUDANÇA: O valor digitado já é o da parcela, não divide mais!
       const valorParcela = valorNumerico;
       const parentId = gerarIdUnico();
       const batch = writeBatch(db);
@@ -84,19 +80,10 @@ export async function salvarTransacaoNoFirebase(dados: SalvarTransacaoProps) {
           type: dados.tipo,
           tags: [dados.tagSelecionada],
           isInstallment: true,
-          installmentDetails: {
-            parentId,
-            current: i + 1,
-            total: numeroParcelas,
-          },
+          installmentDetails: { parentId, current: i + 1, total: numeroParcelas },
           isPaid: false,
           isForThirdParty: dados.isTerceiro,
-          ...(dados.isTerceiro && {
-            thirdPartyDetails: {
-              debtorName: dados.nomeTerceiro,
-              status: "PENDING",
-            },
-          }),
+          ...(dados.isTerceiro && { thirdPartyDetails: { debtorName: dados.nomeTerceiro, status: "PENDING" } }),
           userId: auth.currentUser?.uid,
         };
         batch.set(doc(collection(db, "transacoes")), novaParcela);
@@ -126,12 +113,7 @@ export async function salvarTransacaoNoFirebase(dados: SalvarTransacaoProps) {
           fixedDetails: { parentId, current: i + 1, total: numeroMeses },
           isPaid: false,
           isForThirdParty: dados.isTerceiro,
-          ...(dados.isTerceiro && {
-            thirdPartyDetails: {
-              debtorName: dados.nomeTerceiro,
-              status: "PENDING",
-            },
-          }),
+          ...(dados.isTerceiro && { thirdPartyDetails: { debtorName: dados.nomeTerceiro, status: "PENDING" } }),
           userId: auth.currentUser?.uid,
         };
         batch.set(doc(collection(db, "transacoes")), novaTransacaoFixa);
@@ -153,12 +135,7 @@ export async function salvarTransacaoNoFirebase(dados: SalvarTransacaoProps) {
       isFixed: false,
       isPaid: false,
       isForThirdParty: dados.isTerceiro,
-      ...(dados.isTerceiro && {
-        thirdPartyDetails: {
-          debtorName: dados.nomeTerceiro,
-          status: "PENDING",
-        },
-      }),
+      ...(dados.isTerceiro && { thirdPartyDetails: { debtorName: dados.nomeTerceiro, status: "PENDING" } }),
       userId: auth.currentUser?.uid,
     };
     await addDoc(collection(db, "transacoes"), novaTransacao);
@@ -185,25 +162,32 @@ export async function salvarContaNoFirebase(dados: SalvarContaProps) {
   }
 }
 
-export async function alternarStatusPagamento(
-  id: string,
-  statusAtual: boolean,
-) {
+// 👇 MÁGICA 1: Salva a data exata quando clica no CHECK
+export async function alternarStatusPagamento(id: string, statusAtual: boolean) {
   try {
     const docRef = doc(db, "transacoes", id);
-    await updateDoc(docRef, { isPaid: !statusAtual });
+    const novoStatus = !statusAtual;
+    await updateDoc(docRef, { 
+      isPaid: novoStatus,
+      paidAt: novoStatus ? new Date().toISOString() : null 
+    });
     return true;
   } catch (erro) {
     return false;
   }
 }
 
+// 👇 MÁGICA 2: Salva a data exata quando clica em PAGAR FATURA
 export async function pagarFaturaCompleta(transacoesIds: string[]) {
   try {
     const batch = writeBatch(db);
+    const dataPagamentoReal = new Date().toISOString();
     transacoesIds.forEach((id) => {
       const docRef = doc(db, "transacoes", id);
-      batch.update(docRef, { isPaid: true });
+      batch.update(docRef, { 
+        isPaid: true,
+        paidAt: dataPagamentoReal 
+      });
     });
     await batch.commit();
     return true;
@@ -232,11 +216,7 @@ export async function deletarContaNoFirebase(id: string) {
   }
 }
 
-export async function atualizarContaNoFirebase(
-  id: string,
-  nomeAntigo: string,
-  dados: any,
-) {
+export async function atualizarContaNoFirebase(id: string, nomeAntigo: string, dados: any) {
   try {
     const batch = writeBatch(db);
     const contaRef = doc(db, "contas", id);
@@ -247,15 +227,10 @@ export async function atualizarContaNoFirebase(
       splitRule: { me: dados.porcentagemEu, spouse: dados.porcentagemRay },
     });
     if (nomeAntigo !== dados.nome) {
-      const q = query(
-        collection(db, "transacoes"),
-        where("accountId", "==", nomeAntigo),
-      );
+      const q = query(collection(db, "transacoes"), where("accountId", "==", nomeAntigo));
       const querySnapshot = await getDocs(q);
       querySnapshot.forEach((documento) => {
-        batch.update(doc(db, "transacoes", documento.id), {
-          accountId: dados.nome,
-        });
+        batch.update(doc(db, "transacoes", documento.id), { accountId: dados.nome });
       });
     }
     await batch.commit();
@@ -265,38 +240,26 @@ export async function atualizarContaNoFirebase(
   }
 }
 
-// --- CONFIGURAÇÕES DE USUÁRIO ---
 export async function salvarRegraPadrao(porcentagemEu: number, porcentagemRay: number) {
   if (!auth.currentUser) return;
-  // Salva no banco de dados um documento com o ID do usuário logado
   const userRef = doc(db, 'usuarios', auth.currentUser.uid);
   await setDoc(userRef, { regraPadrao: { me: porcentagemEu, spouse: porcentagemRay } }, { merge: true });
 }
 
 export async function buscarRegraPadrao() {
-  if (!auth.currentUser) return { me: 50, spouse: 50 }; // Retorna 50/50 como segurança
-  
+  if (!auth.currentUser) return { me: 50, spouse: 50 }; 
   const userRef = doc(db, 'usuarios', auth.currentUser.uid);
   const snap = await getDoc(userRef);
-  
-  if (snap.exists() && snap.data().regraPadrao) {
-    return snap.data().regraPadrao;
-  }
-  return { me: 50, spouse: 50 }; // Padrão se for a primeira vez
+  if (snap.exists() && snap.data().regraPadrao) return snap.data().regraPadrao;
+  return { me: 50, spouse: 50 };
 }
 
-// 👇 VERSÃO ÚNICA E CORRIGIDA: Atualizar Transação
 export const atualizarTransacaoNoFirebase = async (id: string, dados: any) => {
   try {
-    // 👇 CORREÇÃO: A coleção certa é "transacoes" em português!
     const docRef = doc(db, 'transacoes', id);
-    
-    // Converte o valor "1.200,50" de volta para número
     const valorNumerico = typeof dados.valorFormatado === 'string' 
       ? parseFloat(dados.valorFormatado.replace(/\./g, '').replace(',', '.')) 
       : dados.valorFormatado;
-
-    // Converte DD/MM/AAAA para formato ISO que o banco entende
     const [dia, mes, ano] = dados.dataPagamento.split('/');
     const dataIso = new Date(`${ano}-${mes}-${dia}T12:00:00`).toISOString();
 
@@ -310,10 +273,8 @@ export const atualizarTransacaoNoFirebase = async (id: string, dados: any) => {
       isForThirdParty: dados.isTerceiro || false,
       thirdPartyName: dados.nomeTerceiro || '',
     });
-
     return { sucesso: true };
   } catch (error) {
-    console.error("Erro ao atualizar transação:", error);
     return { sucesso: false, erro: error };
   }
 };
