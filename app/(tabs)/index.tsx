@@ -89,7 +89,7 @@ export default function DashboardScreen() {
             <Text style={{ fontSize: 22, fontWeight: 'bold', color: colors.text }}>Olá!</Text>
             <Text style={{ fontSize: 13, color: colors.subText, marginTop: 2 }}>Resumo de {MESES[mesAtual]}</Text>
           </View>
-          <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: colors.card, paddingHorizontal: 6, paddingVertical: 4, borderRadius: 12, borderWidth: 1, borderColor: isDarkMode ? '#334155' : '#e2e8f0' }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: colors.card, paddingHorizontal: 6, paddingVertical: 4, borderRadius: 6, borderWidth: 1, borderColor: isDarkMode ? '#334155' : '#e2e8f0' }}>
             <TouchableOpacity onPress={irMesAnterior} style={{ padding: 4 }}><Ionicons name="chevron-back" size={16} color={colors.accent} /></TouchableOpacity>
             <Text style={{ fontSize: 13, color: colors.accent, fontWeight: 'bold', marginHorizontal: 2, width: 85, textAlign: 'center' }}>{mesFormatado}</Text>
             <TouchableOpacity onPress={irProximoMes} style={{ padding: 4 }}><Ionicons name="chevron-forward" size={16} color={colors.accent} /></TouchableOpacity>
@@ -100,7 +100,7 @@ export default function DashboardScreen() {
         <LinearGradient 
           colors={colors.gradient as [string, string]} 
           start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} 
-          style={{ borderRadius: 16, padding: 20, marginBottom: 16, elevation: 4 }}
+          style={{ borderRadius: 6, padding: 20, marginBottom: 16, elevation: 4 }}
         >
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}><Text style={{ fontSize: 12, color: 'rgba(255,255,255,0.8)', fontWeight: '600' }}>Previsão de Saldo do Mês</Text><Ionicons name="wallet-outline" size={18} color="rgba(255,255,255,0.7)" /></View>
           <Text style={{ fontSize: 30, fontWeight: 'bold', color: '#ffffff', marginBottom: 12 }}>R$ {seuSaldoRestante.toFixed(2)}</Text>
@@ -112,10 +112,10 @@ export default function DashboardScreen() {
           </View>
         </LinearGradient>
 
-        <View style={{ backgroundColor: colors.card, borderRadius: 16, padding: 16, elevation: 1, marginBottom: 12 }}>
+        <View style={{ backgroundColor: colors.card, borderRadius: 6, padding: 16, elevation: 1, marginBottom: 12 }}>
           <Text style={{ fontSize: 12, color: colors.subText, marginBottom: 4 }}>Despesas Conjuntas</Text>
           <Text style={{ fontSize: 24, fontWeight: 'bold', color: colors.text, marginBottom: 16 }}>R$ {totalDespesasConjuntas.toFixed(2)}</Text>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', backgroundColor: isDarkMode ? '#0f172a' : '#f8fafc', borderRadius: 10, padding: 12 }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', backgroundColor: isDarkMode ? '#0f172a' : '#f8fafc', borderRadius: 5, padding: 12 }}>
             <View style={{ flex: 1 }}><Text style={{ fontSize: 11, color: colors.subText, marginBottom: 2 }}>Sua Parte</Text><Text style={{ fontSize: 14, fontWeight: '700', color: colors.text }}>R$ {suaParteConjunta.toFixed(2)}</Text></View>
             <View style={{ width: 1, backgroundColor: isDarkMode ? '#334155' : '#e2e8f0', marginHorizontal: 12 }} />
             <View style={{ flex: 1 }}><Text style={{ fontSize: 11, color: colors.subText, marginBottom: 2 }}>Parte Ray</Text><Text style={{ fontSize: 14, fontWeight: '700', color: colors.text }}>R$ {parteRayConjunta.toFixed(2)}</Text></View>
@@ -123,11 +123,11 @@ export default function DashboardScreen() {
         </View>
 
         <View style={{ flexDirection: 'row', marginBottom: 20 }}>
-          <View style={{ flex: 1, borderRadius: 12, padding: 12, backgroundColor: isDarkMode ? '#4c1d95' : '#fdf2f8', marginRight: 8 }}>
+          <View style={{ flex: 1, borderRadius: 6, padding: 12, backgroundColor: isDarkMode ? '#4c1d95' : '#fdf2f8', marginRight: 8 }}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}><Text style={{ fontSize: 11, color: isDarkMode ? '#f9a8d4' : '#6b7280' }}>A Receber</Text><Ionicons name="people-outline" size={14} color={isDarkMode ? '#fbcfe8' : '#be185d'} /></View>
             <Text style={{ fontSize: 16, fontWeight: 'bold', color: isDarkMode ? '#fbcfe8' : '#be185d' }}>R$ {aReceberTerceiros.toFixed(2)}</Text>
           </View>
-          <View style={{ flex: 1, borderRadius: 12, padding: 12, backgroundColor: isDarkMode ? '#1e3a8a' : '#f0f9ff' }}>
+          <View style={{ flex: 1, borderRadius: 6, padding: 12, backgroundColor: isDarkMode ? '#1e3a8a' : '#f0f9ff' }}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}><Text style={{ fontSize: 11, color: isDarkMode ? '#bfdbfe' : '#6b7280' }}>Individual</Text><Ionicons name="person-outline" size={14} color={isDarkMode ? '#bfdbfe' : '#0369a1'} /></View>
             <Text style={{ fontSize: 16, fontWeight: 'bold', color: isDarkMode ? '#bfdbfe' : '#0369a1' }}>R$ {seusGastosIndividuais.toFixed(2)}</Text>
           </View>
@@ -139,8 +139,8 @@ export default function DashboardScreen() {
             <Text style={{ color: colors.subText, textAlign: 'center', marginTop: 10, fontSize: 13 }}>Nenhuma transação registrada.</Text>
           ) : (
             ultimasTransacoes.map((item: any) => (
-              <TouchableOpacity key={item.id} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: colors.card, padding: 12, borderRadius: 12, marginBottom: 8 }} activeOpacity={0.7} onLongPress={() => deletarTransacaoDoFirebase(item.id)}>
-                <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: item.type === 'RECEITA' ? (isDarkMode ? '#064e3b' : '#ecfdf5') : (isDarkMode ? '#1e293b' : '#f1f5f9'), justifyContent: 'center', alignItems: 'center', marginRight: 12 }}>
+              <TouchableOpacity key={item.id} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: colors.card, padding: 12, borderRadius: 5, marginBottom: 8 }} activeOpacity={0.7} onLongPress={() => deletarTransacaoDoFirebase(item.id)}>
+                <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: item.type === 'RECEITA' ? (isDarkMode ? '#064e3b' : '#ecfdf5') : (isDarkMode ? '#1e293b' : '#f1f5f9'), justifyContent: 'center', alignItems: 'center', marginRight: 12 }}>
                   <Ionicons name={item.type === 'RECEITA' ? "trending-up" : "cart-outline"} size={20} color={item.type === 'RECEITA' ? "#10b981" : colors.subText} />
                 </View>
                 <View style={{ flex: 1 }}>
@@ -157,7 +157,7 @@ export default function DashboardScreen() {
         </View>
       </ScrollView>
       
-      <TouchableOpacity style={{ position: 'absolute', bottom: 80, right: 20, width: 52, height: 52, borderRadius: 26, backgroundColor: colors.accent, justifyContent: 'center', alignItems: 'center', shadowColor: colors.accent, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 6, elevation: 5, zIndex: 10 }} activeOpacity={0.8} onPress={() => router.push('/add-transaction')}>
+      <TouchableOpacity style={{ position: 'absolute', bottom: 40, right: 18, width: 52, height: 52, borderRadius: 26, backgroundColor: colors.accent, justifyContent: 'center', alignItems: 'center', shadowColor: colors.accent, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 6, elevation: 5, zIndex: 10 }} activeOpacity={0.8} onPress={() => router.push('/add-transaction')}>
         <Ionicons name="add" size={26} color="#fff" />
       </TouchableOpacity>
     </View>

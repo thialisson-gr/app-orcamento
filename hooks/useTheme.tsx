@@ -7,7 +7,7 @@ export type ThemeName = 'indigo' | 'pink' | 'dark';
 
 export const Colors = {
   indigo: {
-    background: '#f8fafc', card: '#ffffff', text: '#0f172a', subText: '#64748b', accent: '#6366f1', accentLight: '#e0e7ff',
+    background: '#e4f1ff', card: '#ffffff', text: '#0f172a', subText: '#64748b', accent: '#6366f1', accentLight: '#e0e7ff',
     gradient: ['#818cf8', '#4f46e5'] // 👈 Degradê Índigo
   },
   pink: {

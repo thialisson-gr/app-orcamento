@@ -139,12 +139,34 @@ export default function AddTransactionModal() {
       </ScrollView>
 
       <View style={[styles.footer, { backgroundColor: colors.card, borderTopColor: isDarkMode ? '#334155' : '#f1f5f9' }]}>
-        <TouchableOpacity style={[styles.saveButton, { backgroundColor: colors.accent }, isLoading && { opacity: 0.7 }]} onPress={handleSalvar} disabled={isLoading}><Text style={styles.saveButtonText}>Guardar</Text></TouchableOpacity>
+        <TouchableOpacity style={[styles.saveButton, { backgroundColor: colors.accent }, isLoading && { opacity: 0.7 }]} onPress={handleSalvar} disabled={isLoading}><Text style={styles.saveButtonText}>Adicionar</Text></TouchableOpacity>
       </View>
     </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, paddingTop: Platform.OS === 'ios' ? 60 : 50, borderBottomWidth: 1 }, closeBtn: { width: 40, height: 40, justifyContent: 'center' }, headerTitle: { fontSize: 18, fontWeight: 'bold' }, scrollContent: { padding: 20, paddingBottom: 60 }, typeSelector: { flexDirection: 'row', borderRadius: 12, padding: 4, marginBottom: 24 }, typeBtn: { flex: 1, paddingVertical: 10, borderRadius: 8, alignItems: 'center' }, typeBtnDespesa: { backgroundColor: '#ef4444', elevation: 2 }, typeBtnReceita: { backgroundColor: '#10b981', elevation: 2 }, typeText: { fontSize: 14, fontWeight: '600' }, typeTextActive: { color: '#ffffff' }, amountContainer: { alignItems: 'center', marginBottom: 28 }, currencySymbol: { fontSize: 16, color: '#9ca3af', marginBottom: 2 }, amountInput: { fontSize: 44, fontWeight: 'bold', textAlign: 'center', minWidth: 180 }, formGroup: { marginBottom: 20 }, label: { fontSize: 14, fontWeight: '600', marginBottom: 8 }, input: { borderWidth: 1, borderRadius: 12, padding: 16, fontSize: 15 }, chipScrollView: { flexDirection: 'row', marginTop: 4, marginHorizontal: -20, paddingHorizontal: 20 }, chip: { paddingVertical: 10, paddingHorizontal: 16, borderRadius: 12, marginRight: 8, borderWidth: 1}, chipText: { fontSize: 14, fontWeight: '500' }, toggleGroup: { marginBottom: 16, borderRadius: 12, padding: 16, borderWidth: 1 }, toggleHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }, footer: { padding: 20, borderTopWidth: 1 }, saveButton: { borderRadius: 12, paddingVertical: 16, alignItems: 'center' }, saveButtonText: { color: '#ffffff', fontSize: 16, fontWeight: 'bold' },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, paddingTop: Platform.OS === 'ios' ? 60 : 50, borderBottomWidth: 1 }, 
+  closeBtn: { width: 40, height: 40, justifyContent: 'center' }, 
+  headerTitle: { fontSize: 18, fontWeight: 'bold' }, 
+  scrollContent: { padding: 20, paddingBottom: 60 }, 
+  typeSelector: { flexDirection: 'row', borderRadius: 6, padding: 4, marginBottom: 24 }, 
+  typeBtn: { flex: 1, paddingVertical: 10, borderRadius: 4, alignItems: 'center' }, 
+  typeBtnDespesa: { backgroundColor: '#ef4444', elevation: 2 }, 
+  typeBtnReceita: { backgroundColor: '#10b981', elevation: 2 }, 
+  typeText: { fontSize: 14, fontWeight: '600' }, 
+  typeTextActive: { color: '#ffffff' }, 
+  amountContainer: { alignItems: 'center', marginBottom: 28 }, 
+  currencySymbol: { fontSize: 16, color: '#9ca3af', marginBottom: 2 }, 
+  amountInput: { fontSize: 44, fontWeight: 'bold', textAlign: 'center', minWidth: 180 }, 
+  formGroup: { marginBottom: 20 }, label: { fontSize: 14, fontWeight: '600', marginBottom: 8 }, 
+  input: { borderWidth: 1, borderRadius: 6, padding: 12, fontSize: 15 }, 
+  chipScrollView: { flexDirection: 'row', marginTop: 4, marginHorizontal: -20, paddingHorizontal: 20 }, 
+  chip: { paddingVertical: 10, paddingHorizontal: 16, borderRadius: 20, marginRight: 8, borderWidth: 1}, 
+  chipText: { fontSize: 14, fontWeight: '500' }, 
+  toggleGroup: { marginBottom: 16, borderRadius: 6, padding: 6, borderWidth: 1 }, 
+  toggleHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }, 
+  footer: { padding: 20, borderTopWidth: 1 }, 
+  saveButton: { borderRadius: 6, paddingVertical: 16, alignItems: 'center' }, 
+  saveButtonText: { color: '#ffffff', fontSize: 16, fontWeight: 'bold' },
 });

@@ -190,14 +190,14 @@ export default function StatsScreen() {
 
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
         
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: colors.card, padding: 8, borderRadius: 16, marginBottom: 16, elevation: 1, borderWidth: isDarkMode ? 1 : 0, borderColor: '#334155' }}>
-          <TouchableOpacity onPress={irMesAnterior} style={{ padding: 8, backgroundColor: colors.accentLight, borderRadius: 12 }}><Ionicons name="chevron-back" size={16} color={colors.accent} /></TouchableOpacity>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: colors.card, padding: 8, borderRadius: 8, marginBottom: 16, elevation: 1, borderWidth: isDarkMode ? 1 : 0, borderColor: '#334155' }}>
+          <TouchableOpacity onPress={irMesAnterior} style={{ padding: 8, backgroundColor: colors.accentLight, borderRadius: 6 }}><Ionicons name="chevron-back" size={16} color={colors.accent} /></TouchableOpacity>
           <Text style={{ fontSize: 14, fontWeight: 'bold', color: colors.text }}>{mesFormatado}</Text>
-          <TouchableOpacity onPress={irProximoMes} style={{ padding: 8, backgroundColor: colors.accentLight, borderRadius: 12 }}><Ionicons name="chevron-forward" size={16} color={colors.accent} /></TouchableOpacity>
+          <TouchableOpacity onPress={irProximoMes} style={{ padding: 8, backgroundColor: colors.accentLight, borderRadius: 6 }}><Ionicons name="chevron-forward" size={16} color={colors.accent} /></TouchableOpacity>
         </View>
 
         {totalTerceirosCard > 0 && (
-          <View style={{ backgroundColor: isDarkMode ? '#4c1d95' : '#fdf2f8', padding: 12, borderRadius: 16, marginBottom: 16 }}>
+          <View style={{ backgroundColor: isDarkMode ? '#4c1d95' : '#fdf2f8', padding: 12, borderRadius: 8, marginBottom: 16 }}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
               <View>
                 <Text style={{ fontSize: 11, color: isDarkMode ? '#f9a8d4' : '#be185d', marginBottom: 2 }}>A Receber (Terceiros)</Text>
@@ -209,7 +209,7 @@ export default function StatsScreen() {
         )}
 
         {/* ROSCA (DONUT) DO MÊS */}
-        <View style={{ backgroundColor: colors.card, borderRadius: 24, padding: 20, marginBottom: 16, alignItems: 'center', elevation: 2, borderColor: isDarkMode ? '#334155' : 'transparent', borderWidth: isDarkMode ? 1 : 0 }}>
+        <View style={{ backgroundColor: colors.card, borderRadius: 10, padding: 20, marginBottom: 16, alignItems: 'center', elevation: 2, borderColor: isDarkMode ? '#334155' : 'transparent', borderWidth: isDarkMode ? 1 : 0 }}>
           <Text style={{ fontSize: 14, fontWeight: 'bold', color: colors.text, marginBottom: 16, width: '100%' }}>Sua Parte das Despesas</Text>
           
           {totalDespesas === 0 ? (
@@ -248,7 +248,7 @@ export default function StatsScreen() {
 
         {/* 👇 A LEGENDA DA ROSCA QUE TINHA SUMIDO */}
         {dadosGraficoPizzaGifted.length > 0 && (
-          <View style={{ backgroundColor: colors.card, borderRadius: 24, padding: 20, elevation: 2, marginBottom: 20, borderColor: isDarkMode ? '#334155' : 'transparent', borderWidth: isDarkMode ? 1 : 0 }}>
+          <View style={{ backgroundColor: colors.card, borderRadius: 10, padding: 20, elevation: 2, marginBottom: 20, borderColor: isDarkMode ? '#334155' : 'transparent', borderWidth: isDarkMode ? 1 : 0 }}>
             {dadosGraficoPizzaGifted.map((item, index) => {
               const porcentagem = totalDespesas > 0 ? ((item.value / totalDespesas) * 100).toFixed(1) : '0';
               const isLast = index === dadosGraficoPizzaGifted.length - 1;
@@ -270,7 +270,7 @@ export default function StatsScreen() {
         )}
 
         {/* GRÁFICO DE ÁREA FLUIDA */}
-        <View style={{ backgroundColor: colors.card, borderRadius: 24, padding: 20, marginBottom: 20, elevation: 2, borderColor: isDarkMode ? '#334155' : 'transparent', borderWidth: isDarkMode ? 1 : 0 }}>
+        <View style={{ backgroundColor: colors.card, borderRadius: 10, padding: 20, marginBottom: 20, elevation: 2, borderColor: isDarkMode ? '#334155' : 'transparent', borderWidth: isDarkMode ? 1 : 0 }}>
           <Text style={{ fontSize: 14, fontWeight: 'bold', color: colors.text, textAlign: 'center', marginBottom: 2 }}>Tendência e Previsão</Text>
           <Text style={{ fontSize: 12, color: colors.subText, textAlign: 'center', marginBottom: 20 }}>Evolução dos seus gastos</Text>
           
@@ -324,7 +324,7 @@ export default function StatsScreen() {
 
         {/* O CARTÃO DE BALANÇO EXATO */}
         {tabelasBalanco.length > 0 && (
-          <View style={{ backgroundColor: colors.card, borderRadius: 24, paddingVertical: 24, paddingHorizontal: 16, elevation: 3, borderColor: isDarkMode ? '#334155' : 'transparent', borderWidth: isDarkMode ? 1 : 0, alignItems: 'center' }}>
+          <View style={{ backgroundColor: colors.card, borderRadius: 10, paddingVertical: 24, paddingHorizontal: 16, elevation: 3, borderColor: isDarkMode ? '#334155' : 'transparent', borderWidth: isDarkMode ? 1 : 0, alignItems: 'center' }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 24, gap: 8 }}>
               <Ionicons name="calculator-outline" size={18} color={colors.subText} />
               <Text style={{ fontSize: 13, fontWeight: 'bold', color: colors.subText, textTransform: 'uppercase', letterSpacing: 1 }}>Seu Fechamento do Mês</Text>

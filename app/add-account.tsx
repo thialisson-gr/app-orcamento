@@ -85,5 +85,23 @@ export default function AddAccountScreen() {
 }
 
 const styles = StyleSheet.create({
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, paddingTop: Platform.OS === 'ios' ? 60 : 50, borderBottomWidth: 1 }, closeBtn: { width: 40, height: 40, justifyContent: 'center' }, headerTitle: { fontSize: 18, fontWeight: 'bold' }, scrollContent: { padding: 20 }, typeSelector: { flexDirection: 'row', borderRadius: 12, padding: 4, marginBottom: 24 }, typeBtn: { flex: 1, paddingVertical: 10, borderRadius: 8, alignItems: 'center' }, typeBtnDespesa: { backgroundColor: '#ef4444', elevation: 2 }, typeBtnReceita: { backgroundColor: '#10b981', elevation: 2 }, typeText: { fontSize: 14, fontWeight: '600' }, typeTextActive: { color: '#ffffff' }, formGroup: { marginBottom: 20 }, label: { fontSize: 14, fontWeight: '600', marginBottom: 8 }, input: { borderWidth: 1, borderRadius: 12, padding: 16, fontSize: 15 }, row: { flexDirection: 'row', gap: 10 }, chip: { flex: 1, paddingVertical: 12, borderRadius: 12, alignItems: 'center', borderWidth: 1 }, chipText: { fontSize: 14, fontWeight: '500' }, footer: { padding: 20, borderTopWidth: 1 }, saveButton: { borderRadius: 12, paddingVertical: 16, alignItems: 'center' }, saveButtonText: { color: '#ffffff', fontSize: 16, fontWeight: 'bold' },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, paddingTop: Platform.OS === 'ios' ? 60 : 50, borderBottomWidth: 1 }, 
+  closeBtn: { width: 40, height: 40, justifyContent: 'center' }, 
+  headerTitle: { fontSize: 18, fontWeight: 'bold' }, 
+  scrollContent: { padding: 20 }, 
+  typeSelector: { flexDirection: 'row', borderRadius: 6, padding: 4, marginBottom: 24 }, 
+  typeBtn: { flex: 1, paddingVertical: 10, borderRadius: 4, alignItems: 'center' }, 
+  typeBtnDespesa: { backgroundColor: '#ef4444', elevation: 2 }, 
+  typeBtnReceita: { backgroundColor: '#10b981', elevation: 2 }, 
+  typeText: { fontSize: 14, fontWeight: '600' }, 
+  typeTextActive: { color: '#ffffff' }, 
+  formGroup: { marginBottom: 20 }, 
+  label: { fontSize: 14, fontWeight: '600', marginBottom: 8 }, 
+  input: { borderWidth: 1, borderRadius: 6, padding: 12, fontSize: 15 }, 
+  row: { flexDirection: 'row', gap: 10 }, 
+  chip: { flex: 1, paddingVertical: 12, borderRadius: 28, alignItems: 'center', borderWidth: 1 }, 
+  chipText: { fontSize: 14, fontWeight: '500' }, 
+  footer: { padding: 20, borderTopWidth: 1 }, 
+  saveButton: { borderRadius: 6, paddingVertical: 16, alignItems: 'center' }, 
+  saveButtonText: { color: '#ffffff', fontSize: 16, fontWeight: 'bold' },
 });

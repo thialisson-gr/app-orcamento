@@ -34,7 +34,25 @@ export default function AccountsScreen() {
   const irMesAnterior = () => setDataFiltro(new Date(anoAtual, mesAtual - 1, 1));
   const irProximoMes = () => setDataFiltro(new Date(anoAtual, mesAtual + 1, 1));
 
-  const handleOpcoesConta = (conta: any) => Alert.alert('Opções', `Editar ou Excluir?`, [{ text: 'Cancelar', style: 'cancel' }, { text: 'Excluir', style: 'destructive', onPress: () => deletarContaNoFirebase(conta.id) }]);
+  const handleOpcoesConta = (conta: any) => {
+    Alert.alert('Opções', `O que deseja fazer com a tabela "${conta.nome}"?`, [
+      { text: 'Cancelar', style: 'cancel' },
+      { 
+        text: 'Editar', 
+        onPress: () => router.push({
+          pathname: '/edit-account',
+          params: {
+            id: conta.id,
+            nomeOriginal: conta.nome,
+            tipoOriginal: conta.tipo,
+            donoOriginal: conta.dono || 'EU',
+            porcentagemOriginal: conta.splitRule?.me?.toString() || '50'
+          }
+        })
+      },
+      { text: 'Excluir', style: 'destructive', onPress: () => deletarContaNoFirebase(conta.id) }
+    ]);
+  };
   const abrirConta = (nome: string) => router.push(`/account/${encodeURIComponent(nome)}`);
 
   if (loadingContas || loading) return <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background }}><ActivityIndicator size="large" color={colors.accent} /></View>;
@@ -53,10 +71,10 @@ export default function AccountsScreen() {
         <Text style={{ fontSize: 18, fontWeight: 'bold', color: colors.text }}>Minhas Tabelas</Text>
       </View>
       
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: colors.card, padding: 8, marginHorizontal: 16, marginTop: 16, borderRadius: 16, elevation: 1, borderWidth: isDarkMode ? 1 : 0, borderColor: '#334155' }}>
-        <TouchableOpacity onPress={irMesAnterior} style={{ padding: 8, backgroundColor: colors.accentLight, borderRadius: 12 }}><Ionicons name="chevron-back" size={18} color={colors.accent} /></TouchableOpacity>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: colors.card, padding: 8, marginHorizontal: 16, marginTop: 16, borderRadius: 8, elevation: 1, borderWidth: isDarkMode ? 1 : 0, borderColor: '#334155' }}>
+        <TouchableOpacity onPress={irMesAnterior} style={{ padding: 8, backgroundColor: colors.accentLight, borderRadius: 6 }}><Ionicons name="chevron-back" size={18} color={colors.accent} /></TouchableOpacity>
         <Text style={{ fontSize: 15, fontWeight: 'bold', color: colors.text }}>{mesFormatado}</Text>
-        <TouchableOpacity onPress={irProximoMes} style={{ padding: 8, backgroundColor: colors.accentLight, borderRadius: 12 }}><Ionicons name="chevron-forward" size={18} color={colors.accent} /></TouchableOpacity>
+        <TouchableOpacity onPress={irProximoMes} style={{ padding: 8, backgroundColor: colors.accentLight, borderRadius: 6 }}><Ionicons name="chevron-forward" size={18} color={colors.accent} /></TouchableOpacity>
       </View>
 
       <View style={{ marginTop: 16 }}>
@@ -65,7 +83,7 @@ export default function AccountsScreen() {
             <TouchableOpacity 
               key={filtro.id} 
               onPress={() => setFiltroAtivo(filtro.id)}
-              style={{ paddingVertical: 10, paddingHorizontal: 18, borderRadius: 24, marginRight: 8, borderWidth: 1, borderColor: filtroAtivo === filtro.id ? colors.accent : (isDarkMode ? '#475569' : '#e2e8f0'), backgroundColor: filtroAtivo === filtro.id ? colors.accentLight : (isDarkMode ? '#1e293b' : '#f8fafc') }}
+              style={{ paddingVertical: 10, paddingHorizontal: 18, borderRadius: 20, marginRight: 8, marginBottom: 8,borderWidth: 1, borderColor: filtroAtivo === filtro.id ? colors.accent : (isDarkMode ? '#475569' : '#e2e8f0'), backgroundColor: filtroAtivo === filtro.id ? colors.accentLight : (isDarkMode ? '#1e293b' : '#f8fafc') }}
             >
               <Text style={{ fontSize: 13, fontWeight: filtroAtivo === filtro.id ? 'bold' : '600', color: filtroAtivo === filtro.id ? colors.accent : (isDarkMode ? '#cbd5e1' : '#64748b') }}>{filtro.label}</Text>
             </TouchableOpacity>
@@ -102,7 +120,7 @@ export default function AccountsScreen() {
             }
 
             return (
-              <View key={conta.id} style={{ backgroundColor: colors.card, borderRadius: 20, marginBottom: 16, elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, overflow: 'hidden', borderWidth: isDarkMode ? 1 : 0, borderColor: '#334155' }}>
+              <View key={conta.id} style={{ backgroundColor: colors.card, borderRadius: 8, marginBottom: 16, elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, overflow: 'hidden', borderWidth: isDarkMode ? 1 : 0, borderColor: '#334155' }}>
                 
                 {/* 👇 O NOVO CABEÇALHO COLORIDO E ELEGANTE */}
                 <LinearGradient
@@ -111,7 +129,7 @@ export default function AccountsScreen() {
                   style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16 }}
                 >
                   <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 }} activeOpacity={0.7} onPress={() => abrirConta(conta.nome)}>
-                    <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.25)', justifyContent: 'center', alignItems: 'center' }}>
+                    <View style={{ width: 40, height: 40, borderRadius: 6, backgroundColor: 'rgba(255,255,255,0.25)', justifyContent: 'center', alignItems: 'center' }}>
                       <Ionicons name={iconName as any} size={20} color="#ffffff" />
                     </View>
                     <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#ffffff' }}>{conta.nome}</Text>
@@ -138,7 +156,7 @@ export default function AccountsScreen() {
         )}
       </ScrollView>
       
-      <TouchableOpacity style={{ position: 'absolute', bottom: 80, right: 20, width: 56, height: 56, borderRadius: 28, backgroundColor: colors.accent, justifyContent: 'center', alignItems: 'center', elevation: 5, shadowColor: colors.accent, shadowOffset: {width: 0, height: 4}, shadowOpacity: 0.3, shadowRadius: 6 }} activeOpacity={0.8} onPress={() => router.push('/add-account')}>
+      <TouchableOpacity style={{ position: 'absolute', bottom: 40, right: 18, width: 52, height: 52, borderRadius: 28, backgroundColor: colors.accent, justifyContent: 'center', alignItems: 'center', elevation: 5, shadowColor: colors.accent, shadowOffset: {width: 0, height: 4}, shadowOpacity: 0.3, shadowRadius: 6 }} activeOpacity={0.8} onPress={() => router.push('/add-account')}>
         <Ionicons name="add" size={28} color="#fff" />
       </TouchableOpacity>
     </View>

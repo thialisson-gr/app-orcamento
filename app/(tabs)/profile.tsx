@@ -110,6 +110,28 @@ export default function ProfileScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 }, header: { padding: 16, paddingTop: Platform.OS === 'ios' ? 60 : 50, borderBottomWidth: 1, alignItems: 'center' }, headerTitle: { fontSize: 18, fontWeight: 'bold' }, scrollContent: { padding: 16, paddingBottom: 100 }, userCard: { flexDirection: 'row', alignItems: 'center', padding: 16, borderRadius: 16, marginBottom: 20, elevation: 1 }, avatar: { width: 56, height: 56, borderRadius: 16, justifyContent: 'center', alignItems: 'center', marginRight: 12 }, avatarText: { fontSize: 20, fontWeight: 'bold', color: '#ffffff' }, userInfo: { flex: 1 }, userName: { fontSize: 18, fontWeight: 'bold', marginBottom: 2, textTransform: 'capitalize' }, userEmail: { fontSize: 12 }, sectionTitle: { fontSize: 12, fontWeight: 'bold', marginBottom: 8, marginLeft: 8, textTransform: 'uppercase' }, menuGroup: { borderRadius: 16, overflow: 'hidden', marginBottom: 20, elevation: 1 }, menuItem: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16 }, menuItemLeft: { flexDirection: 'row', alignItems: 'center' }, menuIconBox: { width: 36, height: 36, borderRadius: 10, justifyContent: 'center', alignItems: 'center', marginRight: 12 }, menuItemText: { fontSize: 15, fontWeight: '500' }, divider: { height: 1, marginLeft: 64 }, themeOption: { flex: 1, alignItems: 'center', padding: 12, borderRadius: 12, borderWidth: 1, borderColor: 'transparent', backgroundColor: 'rgba(0,0,0,0.03)' }, colorCircle: { width: 36, height: 36, borderRadius: 18, elevation: 2 },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }, modalContent: { borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24 }, modalTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 16, textAlign: 'center' }, modalFooter: { flexDirection: 'row', gap: 12 }, cancelBtn: { flex: 1, paddingVertical: 14, borderRadius: 12, alignItems: 'center' }, cancelBtnText: { fontSize: 15, fontWeight: 'bold' }, confirmBtn: { flex: 1, paddingVertical: 14, borderRadius: 12, alignItems: 'center' }, confirmBtnText: { color: '#fff', fontSize: 15, fontWeight: 'bold' }
+  container: { flex: 1 }, 
+  header: { padding: 16, paddingTop: Platform.OS === 'ios' ? 60 : 50, borderBottomWidth: 1, alignItems: 'center' }, 
+  headerTitle: { fontSize: 18, fontWeight: 'bold' }, scrollContent: { padding: 16, paddingBottom: 100 }, 
+  userCard: { flexDirection: 'row', alignItems: 'center', padding: 16, borderRadius: 6, marginBottom: 20, elevation: 1 }, 
+  avatar: { width: 56, height: 56, borderRadius: 28, justifyContent: 'center', alignItems: 'center', marginRight: 12 }, 
+  avatarText: { fontSize: 20, fontWeight: 'bold', color: '#ffffff' }, userInfo: { flex: 1 }, 
+  userName: { fontSize: 18, fontWeight: 'bold', marginBottom: 2, textTransform: 'capitalize' }, 
+  userEmail: { fontSize: 12 }, 
+  sectionTitle: { fontSize: 12, fontWeight: 'bold', marginBottom: 8, marginLeft: 8, textTransform: 'uppercase' }, 
+  menuGroup: { borderRadius: 6, overflow: 'hidden', marginBottom: 20, elevation: 1 }, 
+  menuItem: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16 }, 
+  menuItemLeft: { flexDirection: 'row', alignItems: 'center' }, 
+  menuIconBox: { width: 46, height: 46, borderRadius: 25, justifyContent: 'center', alignItems: 'center', marginRight: 12 }, 
+  menuItemText: { fontSize: 15, fontWeight: '500' }, divider: { height: 1, marginLeft: 64 }, 
+  themeOption: { flex: 1, alignItems: 'center', padding: 12, borderRadius: 6, borderWidth: 1, borderColor: 'transparent', backgroundColor: 'rgba(0,0,0,0.03)' }, 
+  colorCircle: { width: 36, height: 36, borderRadius: 18, elevation: 2 },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }, 
+  modalContent: { borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24 }, 
+  modalTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 16, textAlign: 'center' }, 
+  modalFooter: { flexDirection: 'row', gap: 12 }, 
+  cancelBtn: { flex: 1, paddingVertical: 14, borderRadius: 6, alignItems: 'center' }, 
+  cancelBtnText: { fontSize: 15, fontWeight: 'bold' }, 
+  confirmBtn: { flex: 1, paddingVertical: 14, borderRadius: 6, alignItems: 'center' }, 
+  confirmBtnText: { color: '#fff', fontSize: 15, fontWeight: 'bold' }
 });
