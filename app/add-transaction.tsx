@@ -1,8 +1,8 @@
 // app/add-transaction.tsx
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { router } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import { router, useLocalSearchParams } from 'expo-router';
+import React, { useEffect, useRef, useState } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useAccounts } from '../hooks/useAccounts';
 import { useTheme } from '../hooks/useTheme';
@@ -12,6 +12,9 @@ const TAGS_DESPESA = ['🛒 Super', '🍔 Lazer', '🏠 Casa', '🚗 Transp.', '
 const TAGS_RECEITA = ['💰 Salário', '💸 Pix', '🏦 Transf.', '📈 Rends.', '🎁 Outros'];
 
 export default function AddTransactionModal() {
+  const params = useLocalSearchParams();
+  const contaPreSelecionada = params.contaPreSelecionada as string;
+  
   const { contas } = useAccounts();
   const { colors, isDarkMode } = useTheme(); 
   const [tipo, setTipo] = useState<'DESPESA' | 'RECEITA'>('DESPESA');
@@ -30,7 +33,19 @@ export default function AddTransactionModal() {
   const [nomeTerceiro, setNomeTerceiro] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  useEffect(() => { if (contas.length > 0 && !contaSelecionada) setContaSelecionada(contas[0].nome); }, [contas]);
+  // 👇 O NOSSO FREIO DE MÃO ANTI-LOOP INFINITO
+  const jaInicializou = useRef(false);
+
+  useEffect(() => { 
+    if (!jaInicializou.current && contas.length > 0) {
+      if (contaPreSelecionada) {
+        setContaSelecionada(contaPreSelecionada);
+      } else {
+        setContaSelecionada(contas[0].nome); 
+      }
+      jaInicializou.current = true; // Trava ativada!
+    }
+  }, [contas, contaPreSelecionada]);
 
   const handleValorChange = (t: string) => {
     const n = t.replace(/\D/g, '');

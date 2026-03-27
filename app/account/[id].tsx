@@ -4,7 +4,7 @@ import { router, Stack, useLocalSearchParams } from 'expo-router';
 import React, { useState } from 'react';
 import { ActivityIndicator, Alert, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useAccounts } from '../../hooks/useAccounts';
-import { useTheme } from '../../hooks/useTheme'; // 👈 TEMA AQUI
+import { useTheme } from '../../hooks/useTheme';
 import { useTransactions } from '../../hooks/useTransactions';
 import { alternarStatusPagamento, deletarTransacaoDoFirebase, pagarFaturaCompleta } from '../../services/firebase/firestore';
 
@@ -13,7 +13,7 @@ const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julh
 export default function AccountDetailScreen() {
   const { id } = useLocalSearchParams();
   const nomeConta = id ? decodeURIComponent(id as string) : '';
-  const { colors, isDarkMode } = useTheme(); // 👈 PUXANDO CORES
+  const { colors, isDarkMode } = useTheme(); 
 
   const { transacoes, loading: loadingTransacoes } = useTransactions();
   const { contas, loadingContas } = useAccounts();
@@ -60,17 +60,30 @@ export default function AccountDetailScreen() {
     Alert.alert(
       isReceita ? 'Receber Tudo' : 'Pagar Fatura',
       isReceita ? 'Deseja marcar todas as entradas deste mês como recebidas?' : 'Deseja dar baixa em todas as contas deste mês?',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        { text: 'Sim, confirmar', onPress: async () => await pagarFaturaCompleta(transacoesPendentes.map(t => t.id)) }
-      ]
+      [{ text: 'Cancelar', style: 'cancel' }, { text: 'Sim, confirmar', onPress: async () => await pagarFaturaCompleta(transacoesPendentes.map(t => t.id)) }]
     );
   };
 
-  const handleExcluir = (item: any) => {
-    Alert.alert('Apagar Transação', `Deseja excluir "${item.descricao}"?`, [
+  // 👇 MUDANÇA: Agora enviamos todos os dados da transação na rota para a tela de edição abrir instantaneamente!
+  const handleOpcoesTransacao = (item: any) => {
+    Alert.alert('Opções da Transação', `O que deseja fazer com "${item.descricao}"?`, [
       { text: 'Cancelar', style: 'cancel' },
-      { text: 'Sim, Apagar', style: 'destructive', onPress: () => deletarTransacaoDoFirebase(item.id) }
+      { text: 'Editar', onPress: () => router.push({ 
+          pathname: '/edit-transaction', 
+          params: { 
+            id: item.id,
+            tipoOriginal: item.type,
+            valorOriginal: item.amount.toString(),
+            descOriginal: item.descricao,
+            contaOriginal: item.accountId,
+            dataOriginal: item.paymentDate || item.date,
+            tagOriginal: item.tags ? item.tags[0] : '',
+            isTerceiroOriginal: item.isForThirdParty ? 'true' : 'false',
+            nomeTerceiroOriginal: item.thirdPartyName || ''
+          } 
+        }) 
+      },
+      { text: 'Eliminar', style: 'destructive', onPress: () => deletarTransacaoDoFirebase(item.id) }
     ]);
   };
 
@@ -80,7 +93,7 @@ export default function AccountDetailScreen() {
   };
 
   const renderItem = (item: any) => (
-    <TouchableOpacity key={item.id} style={[styles.transactionItem, { backgroundColor: colors.card }]} activeOpacity={0.7} onLongPress={() => handleExcluir(item)}>
+    <TouchableOpacity key={item.id} style={[styles.transactionItem, { backgroundColor: colors.card }]} activeOpacity={0.7} onLongPress={() => handleOpcoesTransacao(item)}>
       <TouchableOpacity style={styles.checkboxArea} onPress={() => handleToggleCheck(item.id, item.isPaid)} activeOpacity={0.6}>
         <View style={[styles.checkbox, { borderColor: isDarkMode ? '#4b5563' : '#d1d5db' }, item.isPaid && (isReceita ? styles.checkboxRecebido : styles.checkboxPago)]}>
           {item.isPaid && <Ionicons name="checkmark" size={16} color="#fff" />}
@@ -160,6 +173,15 @@ export default function AccountDetailScreen() {
         )}
       </ScrollView>
 
+      {/* 👇 NOVO: Botão Flutuante (FAB) de adicionar transação nesta tabela */}
+      <TouchableOpacity 
+        style={[styles.fab, { backgroundColor: colors.accent, bottom: transacoesPendentes.length > 0 ? 90 : 20 }]} 
+        activeOpacity={0.8} 
+        onPress={() => router.push({ pathname: '/add-transaction', params: { contaPreSelecionada: nomeConta } })}
+      >
+        <Ionicons name="add" size={26} color="#fff" />
+      </TouchableOpacity>
+
       {transacoesPendentes.length > 0 && (
         <View style={[styles.footer, { backgroundColor: isDarkMode ? 'rgba(17,24,39,0.95)' : 'rgba(243,244,246,0.95)' }]}>
           <TouchableOpacity style={[styles.payAllButton, isReceita ? styles.receiveAllButton : { backgroundColor: colors.accent }]} onPress={handleConcluirTudo} activeOpacity={0.8}>
@@ -180,7 +202,7 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 4 },
   miniMonthSelector: { flexDirection: 'row', alignItems: 'center', borderRadius: 12, paddingHorizontal: 8, paddingVertical: 4 },
   miniArrow: { paddingHorizontal: 4 }, miniMonthText: { fontSize: 12, fontWeight: 'bold', marginHorizontal: 8 },
-  scrollContent: { padding: 20, paddingBottom: 100 },
+  scrollContent: { padding: 20, paddingBottom: 120 },
   summaryCard: { borderRadius: 16, padding: 16, marginBottom: 24, elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4 },
   summaryHeader: { alignItems: 'center', marginBottom: 12, paddingBottom: 12, borderBottomWidth: 1 },
   summaryTitle: { fontSize: 13, marginBottom: 2 }, summaryTotal: { fontSize: 28, fontWeight: 'bold' },
@@ -196,7 +218,8 @@ const styles = StyleSheet.create({
   transactionAmount: { fontSize: 15, fontWeight: 'bold', marginBottom: 2 }, transactionDate: { fontSize: 11 },
   textStrikethrough: { textDecorationLine: 'line-through', color: '#6b7280' }, textStrikethroughMuted: { color: '#6b7280' },
   emptyState: { alignItems: 'center', justifyContent: 'center', paddingVertical: 40 }, emptyText: { marginTop: 12, fontSize: 14 },
-  footer: { position: 'absolute', bottom: 0, left: 0, right: 0, padding: 20 },
+  footer: { position: 'absolute', bottom: 0, left: 0, right: 0, padding: 16 },
   payAllButton: { flexDirection: 'row', borderRadius: 16, paddingVertical: 14, justifyContent: 'center', alignItems: 'center', gap: 8, elevation: 3 },
   receiveAllButton: { backgroundColor: '#10b981' }, payAllText: { color: '#ffffff', fontSize: 16, fontWeight: 'bold' },
+  fab: { position: 'absolute', right: 20, width: 52, height: 52, borderRadius: 26, justifyContent: 'center', alignItems: 'center', elevation: 5, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 6, zIndex: 10 },
 });
