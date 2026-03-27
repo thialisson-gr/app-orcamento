@@ -2,22 +2,25 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Dimensions, LayoutAnimation, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, UIManager, View } from 'react-native';
-// 👇 A MÁGICA 1: Usamos apenas a biblioteca premium agora!
 import { LineChart, PieChart } from 'react-native-gifted-charts';
 import { useAccounts } from '../../hooks/useAccounts';
-import { useTheme } from '../../hooks/useTheme'; // 👈 IMPORT TEMA
+import { useTheme } from '../../hooks/useTheme';
 import { useTransactions } from '../../hooks/useTransactions';
 
 const screenWidth = Dimensions.get('window').width;
-const cardWidth = screenWidth - 32; // Ajustado para padding 16 
+const cardWidth = screenWidth - 32; 
 const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
 const CORES = ['#00d09c', '#3b82f6', '#f59e0b', '#8b5cf6', '#f43f5e', '#0ea5e9', '#d946ef', '#14b8a6', '#f97316'];
 
+const formatarMoeda = (valor: number) => {
+  return valor.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+};
+
 export default function StatsScreen() {
   const { transacoes, loading: loadingTx } = useTransactions();
   const { contas, loadingContas } = useAccounts();
-  const { colors, isDarkMode, activeTheme } = useTheme(); // 👈 PUXANDO CORES
+  const { colors, isDarkMode } = useTheme(); 
   const scrollGraficoRef = useRef<ScrollView>(null);
 
   useEffect(() => {
@@ -45,15 +48,9 @@ export default function StatsScreen() {
     setDataFiltro(new Date(anoAtual, mesAtual + 1, 1));
   };
 
-  const voltarParaHoje = () => {
-    animateTransition();
-    setDataFiltro(new Date());
-  };
-
-  // --- LÓGICA 1: ROSCA (DONUT) DO MÊS ---
-  const { totalDespesas, totalReceitas, totalTerceirosCard, despesasPorTabela } = useMemo(() => {
+  // --- LÓGICA 1: SOMAS (APENAS SUA PARTE) ---
+  const { totalDespesas, totalTerceirosCard, despesasPorTabela } = useMemo(() => {
     let totalDesp = 0;
-    let totalRec = 0;
     let totalTerceiros = 0;
     const porTabela: Record<string, number> = {};
 
@@ -62,43 +59,51 @@ export default function StatsScreen() {
       if (dataPag.getMonth() !== mesAtual || dataPag.getFullYear() !== anoAtual) return;
 
       const conta = contas.find(c => c.nome === t.accountId);
-      const isTerceiro = (conta && conta.tipo === 'TERCEIROS') || t.isForThirdParty;
+      if (!conta) return;
+
+      const isTerceiro = (conta.tipo === 'TERCEIROS') || t.isForThirdParty;
 
       if (isTerceiro) {
         if (t.type === 'DESPESA') totalTerceiros += t.amount;
         return;
       }
 
-      if (t.type === 'DESPESA') {
-        totalDesp += t.amount;
-        if (!porTabela[t.accountId]) porTabela[t.accountId] = 0;
-        porTabela[t.accountId] += t.amount;
+      if (conta.tipo === 'INDIVIDUAL' && conta.dono === 'RAY') return;
+
+      let suaParte = t.amount;
+      if (conta.tipo === 'COMUM') {
+        suaParte = t.amount * ((conta.splitRule?.me ?? 100) / 100);
       }
 
-      if (t.type === 'RECEITA') {
-        totalRec += t.amount;
+      if (t.type === 'DESPESA' && suaParte > 0) {
+        totalDesp += suaParte;
+        if (!porTabela[t.accountId]) porTabela[t.accountId] = 0;
+        porTabela[t.accountId] += suaParte;
       }
     });
 
-    return { totalDespesas: totalDesp, totalReceitas: totalRec, totalTerceirosCard: totalTerceiros, despesasPorTabela: porTabela };
+    return { totalDespesas: totalDesp, totalTerceirosCard: totalTerceiros, despesasPorTabela: porTabela };
   }, [transacoes, contas, mesAtual, anoAtual]);
 
-  // 👇 MUDANÇA: Prepara os dados pro formato da Gifted Pie
+  const tabelasParaSoma = useMemo(() => {
+    return Object.keys(despesasPorTabela)
+      .map(key => ({ nome: key, valor: despesasPorTabela[key] }))
+      .filter(t => t.valor > 0)
+      .sort((a, b) => b.valor - a.valor);
+  }, [despesasPorTabela]);
+
   const dadosGraficoPizzaGifted = useMemo(() => {
     let colorIndexLocal = 0;
-    return Object.keys(despesasPorTabela)
-      .sort((a, b) => despesasPorTabela[b] - despesasPorTabela[a])
-      .map((nomeTabela) => {
-        const valor = despesasPorTabela[nomeTabela];
+    return tabelasParaSoma.map((tabela) => {
         const cor = CORES[colorIndexLocal % CORES.length];
         colorIndexLocal++;
-        return { value: valor, color: cor, label: nomeTabela };
+        return { value: tabela.valor, color: cor, label: tabela.nome };
       });
-  }, [despesasPorTabela]);
+  }, [tabelasParaSoma]);
 
   const totalGastoString = useMemo(() => totalDespesas.toFixed(2).split('.'), [totalDespesas]);
 
-  // --- LÓGICA 2: GRÁFICO DE ÁREA PREMIUM (Gifted Charts) ---
+  // --- LÓGICA 2: GRÁFICO DE ÁREA PREMIUM (APENAS SUA PARTE) ---
   const offsetsMeses = [-5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5];
   const hoje = new Date();
 
@@ -106,23 +111,26 @@ export default function StatsScreen() {
     return offsetsMeses.map(offset => {
       const dataRef = new Date(hoje.getFullYear(), hoje.getMonth() + offset, 1);
       let totalGastoNoMes = 0;
+      
       transacoes.forEach(t => {
         const d = new Date(t.paymentDate || t.date);
         if (d.getMonth() === dataRef.getMonth() && d.getFullYear() === dataRef.getFullYear()) {
           const conta = contas.find(c => c.nome === t.accountId);
-          if (t.type === 'DESPESA' && !(conta?.tipo === 'TERCEIROS' || t.isForThirdParty)) {
-            totalGastoNoMes += t.amount;
+          
+          if (conta && t.type === 'DESPESA' && !(conta.tipo === 'TERCEIROS' || t.isForThirdParty) && !(conta.tipo === 'INDIVIDUAL' && conta.dono === 'RAY')) {
+            let suaParte = t.amount;
+            if (conta.tipo === 'COMUM') {
+              suaParte = t.amount * ((conta.splitRule?.me ?? 100) / 100);
+            }
+            totalGastoNoMes += suaParte;
           }
         }
       });
 
       const isMesAtual = offset === 0;
-      const valorArredondado = Math.round(totalGastoNoMes);
-
       return {
-        value: valorArredondado,
+        value: Math.round(totalGastoNoMes),
         label: `${MESES[dataRef.getMonth()].substring(0, 3)}/${String(dataRef.getFullYear()).substring(2)}`,
-        // 👇 Customização pro Area Chart
         dataPointColor: isMesAtual ? '#f59e0b' : colors.accent,
         labelTextStyle: { color: colors.subText, fontSize: 10 },
       };
@@ -130,8 +138,47 @@ export default function StatsScreen() {
   }, [transacoes, contas, colors]);
 
   const larguraTotalBarras = offsetsMeses.length * 70;
-  const saldo = totalReceitas - totalDespesas;
   const temDadosEvolucao = dadosEvolucaoPremiumLine.some(item => item.value > 0);
+
+  // --- LÓGICA 3: O CARTÃO BALANÇO (APENAS SUA PARTE MATEMÁTICA) ---
+  const tabelasBalanco = useMemo(() => {
+    const totais: Record<string, { valor: number; tipo: string }> = {};
+
+    transacoes.forEach(t => {
+      const dataPag = new Date(t.paymentDate || t.date);
+      if (dataPag.getMonth() !== mesAtual || dataPag.getFullYear() !== anoAtual) return;
+
+      const conta = contas.find(c => c.nome === t.accountId);
+      if (!conta) return;
+
+      if (conta.tipo === 'TERCEIROS' || t.isForThirdParty) return;
+      if (conta.tipo === 'INDIVIDUAL' && conta.dono === 'RAY') return;
+
+      let suaParte = t.amount;
+      if (conta.tipo === 'COMUM') {
+        suaParte = t.amount * ((conta.splitRule?.me ?? 100) / 100);
+      }
+
+      if (suaParte > 0) {
+        if (!totais[t.accountId]) {
+          totais[t.accountId] = { valor: 0, tipo: t.type };
+        }
+        totais[t.accountId].valor += suaParte;
+      }
+    });
+
+    return Object.keys(totais)
+      .map(nome => ({ nome, valor: totais[nome].valor, tipo: totais[nome].tipo }))
+      .sort((a, b) => {
+        if (a.tipo === 'RECEITA' && b.tipo === 'DESPESA') return -1;
+        if (a.tipo === 'DESPESA' && b.tipo === 'RECEITA') return 1;
+        return b.valor - a.valor;
+      });
+  }, [transacoes, contas, mesAtual, anoAtual]);
+
+  const saldoFinalBalanco = useMemo(() => {
+    return tabelasBalanco.reduce((acc, t) => t.tipo === 'RECEITA' ? acc + t.valor : acc - t.valor, 0);
+  }, [tabelasBalanco]);
 
   if (loadingTx || loadingContas) return <View style={[{ flex: 1, justifyContent: 'center', alignItems: 'center' }, { backgroundColor: colors.background }]}><ActivityIndicator size="large" color={colors.accent} /></View>;
 
@@ -141,15 +188,13 @@ export default function StatsScreen() {
         <Text style={[styles.headerTitle, { color: colors.text }]}>Estatísticas</Text>
       </View>
 
-      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
         
-        {/* MES SELECIONADOR COMPACTO (Igual ao do Dashboard) */}
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: colors.card, padding: 8, borderRadius: 16, marginBottom: 12, elevation: 2, borderWidth: isDarkMode ? 1 : 0, borderColor: '#374151' }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: colors.card, padding: 8, borderRadius: 16, marginBottom: 16, elevation: 1, borderWidth: isDarkMode ? 1 : 0, borderColor: '#334155' }}>
           <TouchableOpacity onPress={irMesAnterior} style={{ padding: 8, backgroundColor: colors.accentLight, borderRadius: 12 }}><Ionicons name="chevron-back" size={16} color={colors.accent} /></TouchableOpacity>
           <Text style={{ fontSize: 14, fontWeight: 'bold', color: colors.text }}>{mesFormatado}</Text>
           <TouchableOpacity onPress={irProximoMes} style={{ padding: 8, backgroundColor: colors.accentLight, borderRadius: 12 }}><Ionicons name="chevron-forward" size={16} color={colors.accent} /></TouchableOpacity>
         </View>
-
 
         {totalTerceirosCard > 0 && (
           <View style={{ backgroundColor: isDarkMode ? '#4c1d95' : '#fdf2f8', padding: 12, borderRadius: 16, marginBottom: 16 }}>
@@ -163,9 +208,9 @@ export default function StatsScreen() {
           </View>
         )}
 
-        {/* 👇 A MÁGICA 2: O NOVO DONUT CHART */}
-        <View style={{ backgroundColor: colors.card, borderRadius: 20, padding: 16, marginBottom: 16, alignItems: 'center', elevation: 2 }}>
-          <Text style={{ fontSize: 14, fontWeight: 'bold', color: colors.text, marginBottom: 16, width: '100%' }}>Seus Gastos ({MESES[mesAtual]})</Text>
+        {/* ROSCA (DONUT) DO MÊS */}
+        <View style={{ backgroundColor: colors.card, borderRadius: 24, padding: 20, marginBottom: 16, alignItems: 'center', elevation: 2, borderColor: isDarkMode ? '#334155' : 'transparent', borderWidth: isDarkMode ? 1 : 0 }}>
+          <Text style={{ fontSize: 14, fontWeight: 'bold', color: colors.text, marginBottom: 16, width: '100%' }}>Sua Parte das Despesas</Text>
           
           {totalDespesas === 0 ? (
             <View style={{ height: 180, justifyContent: 'center', alignItems: 'center' }}>
@@ -175,22 +220,20 @@ export default function StatsScreen() {
           ) : (
             <PieChart
               data={dadosGraficoPizzaGifted}
-              donut // 👈 MÁGICA: Transforma em rosquinha
-              radius={85} // Tamanho total
-              innerRadius={60} // Tamanho do buraco
+              donut 
+              radius={85} 
+              innerRadius={60} 
               isAnimated
               animationDuration={800}
               inwardExtraLengthForFocused={8}
-              // 👇 Bordinha sutil no centro
               innerCircleBorderWidth={1}
               innerCircleBorderColor={isDarkMode ? '#374151' : '#f1f5f9'}
-              // 👇 O TEXTO DO CENTRO (TOTAL GASTO)
               centerLabelComponent={() => {
                 const centerTextColor = isDarkMode ? '#f8fafc' : '#1f2937';
                 const centerSubtitleColor = isDarkMode ? '#d1d5db' : '#6b7280';
                 return (
                   <View style={{ justifyContent: 'center', alignItems: 'center' }}>
-                    <Text style={{ fontSize: 11, color: centerSubtitleColor, marginBottom: 2 }}>Total Gasto</Text>
+                    <Text style={{ fontSize: 11, color: centerSubtitleColor, marginBottom: 2 }}>Você Gasta</Text>
                     <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
                       <Text style={{ fontSize: 14, fontWeight: 'bold', color: centerTextColor, marginTop: 1, marginRight: 1 }}>R$</Text>
                       <Text style={{ fontSize: 24, fontWeight: 'bold', color: centerTextColor }}>{totalGastoString[0]}</Text>
@@ -203,21 +246,22 @@ export default function StatsScreen() {
           )}
         </View>
 
+        {/* 👇 A LEGENDA DA ROSCA QUE TINHA SUMIDO */}
         {dadosGraficoPizzaGifted.length > 0 && (
-          <View style={{ backgroundColor: colors.card, borderRadius: 20, padding: 16, elevation: 2, marginBottom: 16 }}>
-            <Text style={{ fontSize: 14, fontWeight: 'bold', color: colors.text, marginBottom: 12 }}>Detalhamento por Tabela</Text>
+          <View style={{ backgroundColor: colors.card, borderRadius: 24, padding: 20, elevation: 2, marginBottom: 20, borderColor: isDarkMode ? '#334155' : 'transparent', borderWidth: isDarkMode ? 1 : 0 }}>
             {dadosGraficoPizzaGifted.map((item, index) => {
               const porcentagem = totalDespesas > 0 ? ((item.value / totalDespesas) * 100).toFixed(1) : '0';
+              const isLast = index === dadosGraficoPizzaGifted.length - 1;
 
               return (
-                <View key={index} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: isDarkMode ? '#374151' : '#f3f4f6' }}>
+                <View key={index} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12, borderBottomWidth: isLast ? 0 : 1, borderBottomColor: isDarkMode ? '#334155' : '#f3f4f6' }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                    <View style={{ width: 10, height: 10, borderRadius: 5, marginRight: 10, backgroundColor: item.color }} />
-                    <Text style={{ fontSize: 13, color: colors.text, fontWeight: '500' }}>{item.label}</Text>
+                    <View style={{ width: 12, height: 12, borderRadius: 6, marginRight: 12, backgroundColor: item.color }} />
+                    <Text style={{ fontSize: 14, color: colors.text, fontWeight: '500' }}>{item.label}</Text>
                   </View>
                   <View style={{ alignItems: 'flex-end' }}>
                     <Text style={{ fontSize: 11, color: colors.subText, marginBottom: 2 }}>{porcentagem}%</Text>
-                    <Text style={{ fontSize: 13, fontWeight: 'bold', color: colors.text }}>R$ {item.value.toFixed(2)}</Text>
+                    <Text style={{ fontSize: 14, fontWeight: 'bold', color: colors.text }}>R$ {item.value.toFixed(2)}</Text>
                   </View>
                 </View>
               );
@@ -225,8 +269,8 @@ export default function StatsScreen() {
           </View>
         )}
 
-        {/* 👇 A MÁGICA 3: O NOVO GRÁFICO DE ÁREA FLUIDA */}
-        <View style={{ backgroundColor: colors.card, borderRadius: 20, padding: 16, marginBottom: 20, elevation: 2 }}>
+        {/* GRÁFICO DE ÁREA FLUIDA */}
+        <View style={{ backgroundColor: colors.card, borderRadius: 24, padding: 20, marginBottom: 20, elevation: 2, borderColor: isDarkMode ? '#334155' : 'transparent', borderWidth: isDarkMode ? 1 : 0 }}>
           <Text style={{ fontSize: 14, fontWeight: 'bold', color: colors.text, textAlign: 'center', marginBottom: 2 }}>Tendência e Previsão</Text>
           <Text style={{ fontSize: 12, color: colors.subText, textAlign: 'center', marginBottom: 20 }}>Evolução dos seus gastos</Text>
           
@@ -243,21 +287,19 @@ export default function StatsScreen() {
                   height={260}
                   overflowTop={24}
                   overflowBottom={8}
-                  areaChart // 👈 MÁGICA: Transforma em gráfico de área
-                  curved={false} // Linhas retas
+                  areaChart 
+                  curved={false} 
                   initialSpacing={20}
                   spacing={70}
                   thickness={3}
-                  // 👇 Cores adaptáveis (Mint ou Azul)
                   color1={colors.accent}
                   startFillColor1={colors.accent}
                   endFillColor1={colors.accent}
                   startOpacity={0.15}
                   endOpacity={0.01}
-                  hideRules // 👇 Remove linhas de grade feias
-                  xAxisColor={isDarkMode ? '#374151' : '#e2e8f0'}
+                  hideRules 
+                  xAxisColor={isDarkMode ? '#334155' : '#e2e8f0'}
                   yAxisThickness={0}
-                  //👇 Labels e Pontos no topo
                   textColor1={colors.text}
                   dataPointsColor={colors.accent}
                   dataPointsRadius={4}
@@ -265,8 +307,8 @@ export default function StatsScreen() {
                   textShiftX={-10}
                   textFontSize={10}
                   showValuesAsDataPointsText
-                  hideYAxisText // Deixa o visual mais clean
-                  disableScroll={true} // Gerido pelo ScrollView externo
+                  hideYAxisText 
+                  disableScroll={true} 
                   xAxisLabelTextStyle={{ color: colors.subText, fontSize: 10, marginTop: 10 }}
                 />
               </View>
@@ -274,11 +316,62 @@ export default function StatsScreen() {
           ) : (
             <View style={{ padding: 24, justifyContent: 'center', alignItems: 'center' }}>
               <Ionicons name="trending-down" size={36} color={colors.subText} />
-              <Text style={{ color: colors.subText, marginTop: 10, textAlign: 'center' }}>Sem histórico de despesas para exibir a tendência.</Text>
+              <Text style={{ color: colors.subText, marginTop: 10, textAlign: 'center' }}>Sem histórico para exibir a tendência.</Text>
             </View>
           )}
           <Text style={{ fontSize: 11, color: colors.subText, marginTop: 15, textAlign: 'center', fontStyle: 'italic', paddingHorizontal: 10 }}>Deslize para ver o passado ou previsões.</Text>
         </View>
+
+        {/* O CARTÃO DE BALANÇO EXATO */}
+        {tabelasBalanco.length > 0 && (
+          <View style={{ backgroundColor: colors.card, borderRadius: 24, paddingVertical: 24, paddingHorizontal: 16, elevation: 3, borderColor: isDarkMode ? '#334155' : 'transparent', borderWidth: isDarkMode ? 1 : 0, alignItems: 'center' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 24, gap: 8 }}>
+              <Ionicons name="calculator-outline" size={18} color={colors.subText} />
+              <Text style={{ fontSize: 13, fontWeight: 'bold', color: colors.subText, textTransform: 'uppercase', letterSpacing: 1 }}>Seu Fechamento do Mês</Text>
+            </View>
+
+            <View style={{ width: '100%', maxWidth: 320 }}>
+              {tabelasBalanco.map((tabela) => {
+                const isReceita = tabela.tipo === 'RECEITA';
+                const corTexto = isReceita ? '#10b981' : '#ef4444'; 
+                const sinal = isReceita ? '+' : '-';
+
+                return (
+                  <View key={tabela.nome} style={{ flexDirection: 'row', width: '100%', marginBottom: 10, alignItems: 'center' }}>
+                    <View style={{ flex: 1.2, flexDirection: 'row', justifyContent: 'flex-end', paddingRight: 16 }}>
+                      <Text style={{ fontSize: 18, color: corTexto, marginRight: 8, fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' }}>
+                        {sinal}
+                      </Text>
+                      <Text style={{ fontSize: 18, fontWeight: '500', color: corTexto, fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' }}>
+                        {formatarMoeda(tabela.valor)}
+                      </Text>
+                    </View>
+                    <View style={{ flex: 1, paddingLeft: 12, borderLeftWidth: 1, borderLeftColor: isDarkMode ? '#334155' : '#f1f5f9', justifyContent: 'center' }}>
+                      <Text style={{ fontSize: 15, color: colors.text, fontWeight: '500' }} numberOfLines={1}>{tabela.nome}</Text>
+                    </View>
+                  </View>
+                );
+              })}
+
+              <View style={{ height: 2, backgroundColor: isDarkMode ? '#475569' : '#cbd5e1', width: '100%', marginVertical: 16, borderRadius: 2 }} />
+
+              <View style={{ flexDirection: 'row', width: '100%', alignItems: 'center' }}>
+                <View style={{ flex: 1.2, flexDirection: 'row', justifyContent: 'flex-end', paddingRight: 16 }}>
+                  <Text style={{ fontSize: 24, color: saldoFinalBalanco >= 0 ? '#10b981' : '#ef4444', marginRight: 8, fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' }}>
+                    {saldoFinalBalanco >= 0 ? '+' : '-'}
+                  </Text>
+                  <Text style={{ fontSize: 24, fontWeight: 'bold', color: saldoFinalBalanco >= 0 ? '#10b981' : '#ef4444', fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' }}>
+                    {formatarMoeda(Math.abs(saldoFinalBalanco))}
+                  </Text>
+                </View>
+                <View style={{ flex: 1, paddingLeft: 12, borderLeftWidth: 1, borderLeftColor: 'transparent', justifyContent: 'center' }}>
+                  <Text style={{ fontSize: 14, fontWeight: 'bold', color: colors.subText, textTransform: 'uppercase' }}>Saldo</Text>
+                </View>
+              </View>
+
+            </View>
+          </View>
+        )}
 
       </ScrollView>
     </View>
@@ -286,7 +379,7 @@ export default function StatsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 }, 
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center' }, 
   compactHeader: { flexDirection: 'row', padding: 20, paddingTop: Platform.OS === 'ios' ? 60 : 50, borderBottomWidth: 1, alignItems: 'center', justifyContent: 'center' },
   headerTitle: { fontSize: 18, fontWeight: 'bold', textAlign: 'center' }, 
 });
