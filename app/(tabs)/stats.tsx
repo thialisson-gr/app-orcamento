@@ -210,7 +210,7 @@ export default function StatsScreen() {
 
         {/* ROSCA (DONUT) DO MÊS */}
         <View style={{ backgroundColor: colors.card, borderRadius: 10, padding: 20, marginBottom: 16, alignItems: 'center', elevation: 2, borderColor: isDarkMode ? '#334155' : 'transparent', borderWidth: isDarkMode ? 1 : 0 }}>
-          <Text style={{ fontSize: 14, fontWeight: 'bold', color: colors.text, marginBottom: 16, width: '100%' }}>Sua Parte das Despesas</Text>
+          <Text style={{ textAlign: 'center',fontSize: 16, fontWeight: 'bold', color: colors.text, marginBottom: 16, width: '100%' }}>Suas Despesas</Text>
           
           {totalDespesas === 0 ? (
             <View style={{ height: 180, justifyContent: 'center', alignItems: 'center' }}>
@@ -221,23 +221,23 @@ export default function StatsScreen() {
             <PieChart
               data={dadosGraficoPizzaGifted}
               donut 
-              radius={85} 
-              innerRadius={60} 
+              radius={120} 
+              innerRadius={95} 
               isAnimated
               animationDuration={800}
               inwardExtraLengthForFocused={8}
               innerCircleBorderWidth={1}
-              innerCircleBorderColor={isDarkMode ? '#374151' : '#f1f5f9'}
+              innerCircleBorderColor={isDarkMode ? '#374151' : '#f9f6f1'}
               centerLabelComponent={() => {
-                const centerTextColor = isDarkMode ? '#f8fafc' : '#1f2937';
-                const centerSubtitleColor = isDarkMode ? '#d1d5db' : '#6b7280';
+                const centerTextColor = isDarkMode ? '#02101f' : '#1f2937';
+                const centerSubtitleColor = isDarkMode ? '#02101f' : '#6b7280';
                 return (
                   <View style={{ justifyContent: 'center', alignItems: 'center' }}>
-                    <Text style={{ fontSize: 11, color: centerSubtitleColor, marginBottom: 2 }}>Você Gasta</Text>
+                    <Text style={{ fontSize: 15, color: centerSubtitleColor, marginBottom: 2 }}>Você Gasta</Text>
                     <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
-                      <Text style={{ fontSize: 14, fontWeight: 'bold', color: centerTextColor, marginTop: 1, marginRight: 1 }}>R$</Text>
-                      <Text style={{ fontSize: 24, fontWeight: 'bold', color: centerTextColor }}>{totalGastoString[0]}</Text>
-                      <Text style={{ fontSize: 12, color: centerTextColor, marginTop: 4 }}>,{totalGastoString[1]}</Text>
+                      <Text style={{ fontSize: 32, fontWeight: 'bold', color: centerTextColor, marginTop: 1, marginRight: 1 }}>R$ </Text>
+                      <Text style={{ fontSize: 32, fontWeight: 'bold', color: centerTextColor }}>{totalGastoString[0]}</Text>
+                      <Text style={{ fontSize: 16, color: centerTextColor, marginTop: 6 }}>,{totalGastoString[1]}</Text>
                     </View>
                   </View>
                 );

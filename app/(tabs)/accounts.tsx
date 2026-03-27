@@ -126,7 +126,7 @@ export default function AccountsScreen() {
                 <LinearGradient
                   colors={gradColors as [string, string]}
                   start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-                  style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16 }}
+                  style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 6 }}
                 >
                   <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 }} activeOpacity={0.7} onPress={() => abrirConta(conta.nome)}>
                     <View style={{ width: 40, height: 40, borderRadius: 6, backgroundColor: 'rgba(255,255,255,0.25)', justifyContent: 'center', alignItems: 'center' }}>
@@ -140,7 +140,7 @@ export default function AccountsScreen() {
                 </LinearGradient>
 
                 {/* 👇 O CORPO DO CARTÃO (ONDE FICAM OS VALORES) */}
-                <TouchableOpacity style={{ flexDirection: 'row', justifyContent: 'space-between', padding: 16 }} activeOpacity={0.6} onPress={() => abrirConta(conta.nome)}>
+                <TouchableOpacity style={{ flexDirection: 'row', justifyContent: 'space-between', padding: 20 }} activeOpacity={0.6} onPress={() => abrirConta(conta.nome)}>
                   <View style={{ flex: 1 }}>
                     <Text style={{ fontSize: 12, color: colors.subText, marginBottom: 4, fontWeight: '500' }}>{isReceita ? 'Total Previsto' : 'Total da Fatura'}</Text>
                     <Text style={{ fontSize: 16, fontWeight: 'bold', color: colors.text }}>R$ {totalFatura.toFixed(2)}</Text>
