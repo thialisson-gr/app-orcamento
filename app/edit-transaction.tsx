@@ -3,7 +3,8 @@ import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, Platform, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view'; // 👈 IMPORTANTE
 import { useAccounts } from '../hooks/useAccounts';
 import { useTheme } from '../hooks/useTheme';
 import { atualizarTransacaoNoFirebase } from '../services/firebase/firestore';
@@ -30,7 +31,6 @@ export default function EditTransactionScreen() {
   const [nomeTerceiro, setNomeTerceiro] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  // 👇 O FREIO DE MÃO TAMBÉM AQUI
   const jaInicializou = useRef(false);
 
   useEffect(() => {
@@ -60,7 +60,7 @@ export default function EditTransactionScreen() {
         }
       }
 
-      jaInicializou.current = true; // Trava ativada!
+      jaInicializou.current = true;
     }
   }, [params]);
 
@@ -92,14 +92,21 @@ export default function EditTransactionScreen() {
   };
 
   return (
-    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: colors.card }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <View style={{ flex: 1, backgroundColor: colors.card }}>
       <View style={[styles.header, { borderBottomColor: isDarkMode ? '#334155' : '#f1f5f9' }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.closeBtn} activeOpacity={0.7}><Ionicons name="arrow-back" size={24} color={colors.text} /></TouchableOpacity>
         <Text style={[styles.headerTitle, { color: colors.text }]}>Editar Transação</Text>
         <View style={{ width: 40 }} /> 
       </View>
       
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+      {/* 👇 Substituímos ScrollView/KeyboardAvoidingView pelo KeyboardAwareScrollView */}
+      <KeyboardAwareScrollView 
+        contentContainerStyle={styles.scrollContent} 
+        showsVerticalScrollIndicator={false} 
+        keyboardShouldPersistTaps="handled"
+        enableOnAndroid={true}
+        extraScrollHeight={Platform.OS === 'ios' ? 20 : 0}
+      >
         <View style={[styles.typeSelector, { backgroundColor: isDarkMode ? '#0f172a' : '#f1f5f9' }]}>
           <TouchableOpacity style={[styles.typeBtn, tipo === 'DESPESA' && styles.typeBtnDespesa]} onPress={() => {setTipo('DESPESA'); setTagSelecionada(TAGS_DESPESA[0]);}}><Text style={[styles.typeText, { color: isDarkMode ? '#94a3b8' : '#64748b' }, tipo === 'DESPESA' && styles.typeTextActive]}>Despesa</Text></TouchableOpacity>
           <TouchableOpacity style={[styles.typeBtn, tipo === 'RECEITA' && styles.typeBtnReceita]} onPress={() => {setTipo('RECEITA'); setTagSelecionada(TAGS_RECEITA[0]);}}><Text style={[styles.typeText, { color: isDarkMode ? '#94a3b8' : '#64748b' }, tipo === 'RECEITA' && styles.typeTextActive]}>Receita</Text></TouchableOpacity>
@@ -153,12 +160,12 @@ export default function EditTransactionScreen() {
           </View>
         )}
 
-      </ScrollView>
+      </KeyboardAwareScrollView>
 
       <View style={[styles.footer, { backgroundColor: colors.card, borderTopColor: isDarkMode ? '#334155' : '#f1f5f9' }]}>
         <TouchableOpacity style={[styles.saveButton, { backgroundColor: colors.accent }, isLoading && { opacity: 0.7 }]} onPress={handleSalvar} disabled={isLoading}><Text style={styles.saveButtonText}>Salvar Alterações</Text></TouchableOpacity>
       </View>
-    </KeyboardAvoidingView>
+    </View>
   );
 }
 
