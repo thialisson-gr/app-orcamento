@@ -98,7 +98,7 @@ export default function StatsScreen() {
   const totalGastoString = useMemo(() => totalDespesas.toFixed(2).split('.'), [totalDespesas]);
 
   // --- LÓGICA 2: GRÁFICO DE ÁREA PREMIUM (APENAS SUA PARTE) ---
-  const offsetsMeses = [-5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5];
+  const offsetsMeses = [-2, -1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
   const hoje = new Date();
 
   const dadosEvolucaoPremiumLine = useMemo(() => {
@@ -122,16 +122,71 @@ export default function StatsScreen() {
       });
 
       const isMesAtual = offset === 0;
+      const corPonto = isMesAtual ? '#f59e0b' : colors.accent;
+      
+      // Formatação Completa com ponto (Ex: 1.100)
+      const valorFormatado = Math.round(totalGastoNoMes).toLocaleString('pt-BR');
+
       return {
         value: Math.round(totalGastoNoMes),
-        label: `${MESES[dataRef.getMonth()].substring(0, 3)}/${String(dataRef.getFullYear()).substring(2)}`,
-        dataPointColor: isMesAtual ? '#f59e0b' : colors.accent,
-        labelTextStyle: { color: colors.subText, fontSize: 10 },
+        label: `${MESES[dataRef.getMonth()].substring(0, 3)}`,
+        labelTextStyle: { 
+          color: isMesAtual ? colors.text : colors.subText, 
+          fontSize: 12, 
+          fontWeight: (isMesAtual ? 'bold' : 'normal') as 'bold' | 'normal',
+          marginTop: 0,
+          paddingLeft: 8,
+        },
+        
+        // 👇 O PONTO PREMIUM COM A LINHA TRACEJADA DESCENDO
+        customDataPoint: () => (
+          <View style={{ alignItems: 'center', justifyContent: 'center' }}>
+            {/* Linha Tracejada - Desce 300px, o gráfico corta no eixo X automaticamente */}
+            <View style={{ position: 'absolute', top: 12, width: 0, height: 300, borderLeftWidth: 1, borderStyle: 'dashed', borderColor: isDarkMode ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.2)' }} />
+            
+            {/* O Círculo Central */}
+            <View style={{ 
+              width: 16, 
+              height: 16, 
+              borderRadius: 9, 
+              backgroundColor: isDarkMode ? '#0f172a' : '#fff', 
+              borderWidth: 3, 
+              borderColor: corPonto,
+              shadowColor: corPonto,
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.5,
+              shadowRadius: 3,
+              elevation: 4,
+              marginTop: -5
+            }} />
+          </View>
+        ),
+
+        // 👇 A PÍLULA FLUTUANTE COM O NÚMERO
+        dataPointLabelComponent: () => (
+          <View style={{ 
+            backgroundColor: isMesAtual ? corPonto : (isDarkMode ? '#334155' : '#f1f5f9'), 
+            paddingHorizontal: 2, 
+            paddingVertical: 3, 
+            borderRadius: 10, 
+            marginBottom: 10, 
+            marginLeft: 9, // Metade da largura da pílula para centralizar
+            marginTop: 6,
+            transform: [{ translateX: -14 }], // Centraliza a pílula em cima do ponto
+            shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 2, elevation: 2,
+            minWidth: 50,
+            alignItems: 'center'
+          }}>
+            <Text style={{ color: isMesAtual ? '#fcfcfc' : colors.text, fontSize: 13, fontWeight: 'bold' }}>
+              {valorFormatado}
+            </Text>
+          </View>
+        ),
       };
     });
-  }, [transacoes, contas, colors]);
+  }, [transacoes, contas, colors, isDarkMode]);
 
-  const larguraTotalBarras = offsetsMeses.length * 70;
+  const larguraTotalBarras = offsetsMeses.length * 85; // Aumentei um pouco o espaçamento para as tooltips não baterem
   const temDadosEvolucao = dadosEvolucaoPremiumLine.some(item => item.value > 0);
 
   // --- LÓGICA 3: O CARTÃO BALANÇO (APENAS SUA PARTE MATEMÁTICA) ---
@@ -184,7 +239,7 @@ export default function StatsScreen() {
 
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
         
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: colors.card, padding: 8, borderRadius: 8, marginBottom: 16, elevation: 1, borderWidth: isDarkMode ? 1 : 0, borderColor: '#334155' }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: colors.card, padding: 2, borderRadius: 8, marginBottom: 16, elevation: 1, borderWidth: isDarkMode ? 1 : 0, borderColor: '#334155' }}>
           <TouchableOpacity onPress={irMesAnterior} style={{ padding: 8, backgroundColor: colors.accentLight, borderRadius: 6 }}><Ionicons name="chevron-back" size={16} color={colors.accent} /></TouchableOpacity>
           <Text style={{ fontSize: 14, fontWeight: 'bold', color: colors.text }}>{mesFormatado}</Text>
           <TouchableOpacity onPress={irProximoMes} style={{ padding: 8, backgroundColor: colors.accentLight, borderRadius: 6 }}><Ionicons name="chevron-forward" size={16} color={colors.accent} /></TouchableOpacity>
@@ -223,8 +278,8 @@ export default function StatsScreen() {
               innerCircleBorderWidth={1}
               innerCircleBorderColor={isDarkMode ? '#374151' : '#f9f6f1'}
               centerLabelComponent={() => {
-                const centerTextColor = isDarkMode ? '#02101f' : '#1f2937';
-                const centerSubtitleColor = isDarkMode ? '#02101f' : '#6b7280';
+                const centerTextColor = isDarkMode ? '#f8fafc' : '#1f2937';
+                const centerSubtitleColor = isDarkMode ? '#94a3b8' : '#6b7280';
                 return (
                   <View style={{ justifyContent: 'center', alignItems: 'center' }}>
                     <Text style={{ fontSize: 15, color: centerSubtitleColor, marginBottom: 2 }}>Você Gasta</Text>
@@ -240,7 +295,7 @@ export default function StatsScreen() {
           )}
         </View>
 
-        {/* 👇 A LEGENDA DA ROSCA QUE TINHA SUMIDO */}
+        {/* A LEGENDA DA ROSCA */}
         {dadosGraficoPizzaGifted.length > 0 && (
           <View style={{ backgroundColor: colors.card, borderRadius: 10, padding: 20, elevation: 2, marginBottom: 20, borderColor: isDarkMode ? '#334155' : 'transparent', borderWidth: isDarkMode ? 1 : 0 }}>
             {dadosGraficoPizzaGifted.map((item, index) => {
@@ -263,10 +318,10 @@ export default function StatsScreen() {
           </View>
         )}
 
-        {/* GRÁFICO DE ÁREA FLUIDA */}
-        <View style={{ backgroundColor: colors.card, borderRadius: 10, padding: 20, marginBottom: 20, elevation: 2, borderColor: isDarkMode ? '#334155' : 'transparent', borderWidth: isDarkMode ? 1 : 0 }}>
-          <Text style={{ fontSize: 14, fontWeight: 'bold', color: colors.text, textAlign: 'center', marginBottom: 2 }}>Tendência e Previsão</Text>
-          <Text style={{ fontSize: 12, color: colors.subText, textAlign: 'center', marginBottom: 20 }}>Evolução dos seus gastos</Text>
+        {/* GRÁFICO DE ÁREA PREMIUM (ATUALIZADO) */}
+        <View style={{ backgroundColor: colors.card, borderRadius: 10, paddingVertical: 8, marginBottom: 20, elevation: 2, borderColor: isDarkMode ? '#334155' : 'transparent', borderWidth: isDarkMode ? 1 : 0 }}>
+          <Text style={{ fontSize: 16, fontWeight: 'bold', color: colors.text, textAlign: 'center', marginBottom: 2 }}>Tendência e Previsão</Text>
+          <Text style={{ fontSize: 12, color: colors.subText, textAlign: 'center', marginBottom: 10 }}>Evolução dos seus gastos</Text>
           
           {temDadosEvolucao ? (
             <ScrollView horizontal ref={scrollGraficoRef} showsHorizontalScrollIndicator={false}
@@ -275,35 +330,30 @@ export default function StatsScreen() {
                 scrollGraficoRef.current?.scrollTo({ x: meioDoGrafico, animated: false });
               }}
             >
-              <View style={{ paddingHorizontal: 16, paddingTop: 30 }}>
+              {/* 👇 A MÁGICA ESTÁ AQUI: paddingTop 60 (teto) e paddingBottom 40 (chão) */}
+              <View style={{ zIndex: 0,paddingHorizontal: 16, paddingTop: 60, paddingBottom: 10 }}>
                 <LineChart
                   data={dadosEvolucaoPremiumLine}
-                  height={260}
-                  overflowTop={24}
-                  overflowBottom={8}
+                  height={140} // Reduzi a altura da linha interna para sobrar mais espaço fora
+                  overflowTop={100} // Libera o teto
+                  overflowBottom={50} // Libera o chão
                   areaChart 
-                  curved={false} 
+                  curved={false}
                   initialSpacing={20}
-                  spacing={70}
+                  spacing={80} 
                   thickness={3}
                   color1={colors.accent}
                   startFillColor1={colors.accent}
                   endFillColor1={colors.accent}
-                  startOpacity={0.15}
-                  endOpacity={0.01}
+                  startOpacity={0.2} 
+                  endOpacity={0.0}
                   hideRules 
                   xAxisColor={isDarkMode ? '#334155' : '#e2e8f0'}
                   yAxisThickness={0}
-                  textColor1={colors.text}
-                  dataPointsColor={colors.accent}
-                  dataPointsRadius={4}
-                  textShiftY={-8}
-                  textShiftX={-10}
-                  textFontSize={10}
-                  showValuesAsDataPointsText
                   hideYAxisText 
-                  disableScroll={true} 
-                  xAxisLabelTextStyle={{ color: colors.subText, fontSize: 10, marginTop: 10 }}
+                  disableScroll={true}                   
+                  // 👇 Tirei a margem gigante que estava empurrando o texto pra fora
+                  xAxisLabelTextStyle={{ color: colors.subText, fontSize: 13}} 
                 />
               </View>
             </ScrollView>
@@ -374,6 +424,6 @@ export default function StatsScreen() {
 
 const styles = StyleSheet.create({
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' }, 
-  compactHeader: { flexDirection: 'row', padding: 20, paddingTop: Platform.OS === 'ios' ? 60 : 50, borderBottomWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  compactHeader: { flexDirection: 'row', padding: 10, paddingTop: Platform.OS === 'ios' ? 60 : 40, borderBottomWidth: 1, alignItems: 'center', justifyContent: 'center' },
   headerTitle: { fontSize: 18, fontWeight: 'bold', textAlign: 'center' }, 
 });

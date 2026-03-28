@@ -43,7 +43,7 @@ export default function TabsLayout() {
           <TouchableOpacity
             key={route.key}
             onPress={() => jumpTo(route.key)}
-            style={{ flex: 1, alignItems: 'center', paddingVertical: 10 }}
+            style={{ flex: 1, alignItems: 'center', paddingVertical: 13 }}
           >
             <Ionicons name={route.icon} size={24} color={isActive ? colors.accent : colors.subText} />
             <Text style={{ color: isActive ? colors.accent : colors.subText, fontSize: 12 }}>{route.title}</Text>
@@ -60,7 +60,7 @@ export default function TabsLayout() {
       renderTabBar={renderTabBar}
       onIndexChange={setIndex}
       initialLayout={{ width: Dimensions.get('window').width }}
-      swipeEnabled={true}
+      swipeEnabled={false}
       animationEnabled={true}
       tabBarPosition="bottom" // 👈 AQUI ESTÁ A MÁGICA! Joga a barra pro fundo.
       style={{ flex: 1 }}

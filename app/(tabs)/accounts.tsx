@@ -67,11 +67,11 @@ export default function AccountsScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
-      <View style={{ padding: 16, paddingTop: Platform.OS === 'ios' ? 60 : 50, backgroundColor: colors.card, borderBottomWidth: 1, borderBottomColor: isDarkMode ? '#334155' : '#e2e8f0', alignItems: 'center' }}>
+      <View style={{ padding: 10, paddingTop: Platform.OS === 'ios' ? 60 : 40, backgroundColor: colors.card, borderBottomWidth: 1, borderBottomColor: isDarkMode ? '#334155' : '#e2e8f0', alignItems: 'center' }}>
         <Text style={{ fontSize: 18, fontWeight: 'bold', color: colors.text }}>Minhas Tabelas</Text>
       </View>
       
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: colors.card, padding: 8, marginHorizontal: 16, marginTop: 16, borderRadius: 8, elevation: 1, borderWidth: isDarkMode ? 1 : 0, borderColor: '#334155' }}>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: colors.card, padding: 2, marginHorizontal: 16, marginTop: 16, borderRadius: 8, elevation: 1, borderWidth: isDarkMode ? 1 : 0, borderColor: '#334155' }}>
         <TouchableOpacity onPress={irMesAnterior} style={{ padding: 8, backgroundColor: colors.accentLight, borderRadius: 6 }}><Ionicons name="chevron-back" size={18} color={colors.accent} /></TouchableOpacity>
         <Text style={{ fontSize: 15, fontWeight: 'bold', color: colors.text }}>{mesFormatado}</Text>
         <TouchableOpacity onPress={irProximoMes} style={{ padding: 8, backgroundColor: colors.accentLight, borderRadius: 6 }}><Ionicons name="chevron-forward" size={18} color={colors.accent} /></TouchableOpacity>

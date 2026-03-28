@@ -65,7 +65,8 @@ export default function DashboardScreen() {
     } else if (t.isFixed && t.fixedDetails?.parentId) {
       if (!parentIdsVistos.has(t.fixedDetails.parentId)) {
         parentIdsVistos.add(t.fixedDetails.parentId);
-        transacoesRecentes.push({ ...t, descricao: `${t.descricao} (${t.fixedDetails.current}/${t.fixedDetails.total})`, dateParaExibir: t.purchaseDate || t.date });
+        // 👇 CORREÇÃO AQUI: Mantém a descrição limpa, sem o (1/9)
+        transacoesRecentes.push({ ...t, descricao: t.descricao, dateParaExibir: t.purchaseDate || t.date });
       }
     } else transacoesRecentes.push({ ...t, dateParaExibir: t.purchaseDate || t.date });
   });
@@ -96,7 +97,6 @@ export default function DashboardScreen() {
           </View>
         </View>
 
-        {/* 👇 AQUI: Gradient conectado ao tema e bordas reduzidas para 16 */}
         <LinearGradient 
           colors={colors.gradient as [string, string]} 
           start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} 
