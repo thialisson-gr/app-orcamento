@@ -3,12 +3,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import React, { useState } from 'react';
 import { ActivityIndicator, Alert, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { useTheme } from '../hooks/useTheme'; // 👈 TEMA AQUI
+import { useIdentity } from '../hooks/useIdentity'; // 👈 Cérebro de Identidade importado!
+import { useTheme } from '../hooks/useTheme';
 import { atualizarContaNoFirebase } from '../services/firebase/firestore';
 
 export default function EditAccountScreen() {
   const params = useLocalSearchParams();
-  const { colors, isDarkMode } = useTheme(); // 👈 PUXANDO CORES
+  const { colors, isDarkMode } = useTheme(); 
+  const { perfil } = useIdentity(); // 👈 Quem está com o celular na mão?
   
   const id = params.id as string;
   const nomeOriginal = params.nomeOriginal as string;
@@ -16,7 +18,7 @@ export default function EditAccountScreen() {
   
   const [nome, setNome] = useState(nomeOriginal);
   const [tipo, setTipo] = useState<'COMUM' | 'INDIVIDUAL' | 'TERCEIROS'>((params.tipoOriginal as any) || 'COMUM');
-  const [dono, setDono] = useState<'EU' | 'RAY'>((params.donoOriginal as any) || 'EU');
+  const [dono, setDono] = useState<'EU' | 'RAY'>((params.donoOriginal as any) || (perfil || 'EU'));
   const [porcentagemEu, setPorcentagemEu] = useState(params.porcentagemOriginal as string);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -25,8 +27,22 @@ export default function EditAccountScreen() {
     setIsLoading(true);
     const percEu = parseInt(porcentagemEu) || 0;
     const percRay = 100 - percEu;
+
+    // 🛡️ LÓGICA DE DONO CORRIGIDA:
+    // Se for RECEITA, TERCEIROS ou INDIVIDUAL, o dono deve ser gravado!
+    let donoFinal = null;
+    if (fluxo === 'RECEITA' || tipo === 'TERCEIROS') {
+      donoFinal = perfil || 'EU'; // Carimba quem está segurando o celular
+    } else if (tipo === 'INDIVIDUAL') {
+      donoFinal = dono; // Pega o que foi selecionado na tela (Minha / Ray)
+    }
+
     const resultado = await atualizarContaNoFirebase(id, nomeOriginal, {
-      nome, tipo: fluxo === 'RECEITA' ? 'RECEITA' : tipo, dono: fluxo === 'RECEITA' ? null : (tipo === 'INDIVIDUAL' ? dono : null), porcentagemEu: fluxo === 'RECEITA' ? 100 : (tipo === 'COMUM' ? percEu : (tipo === 'INDIVIDUAL' && dono === 'EU' ? 100 : 0)), porcentagemRay: fluxo === 'RECEITA' ? 0 : (tipo === 'COMUM' ? percRay : (tipo === 'INDIVIDUAL' && dono === 'RAY' ? 100 : 0)),
+      nome, 
+      tipo: fluxo === 'RECEITA' ? 'RECEITA' : tipo, 
+      dono: donoFinal, // 👈 Agora manda a etiqueta correta pro Firebase
+      porcentagemEu: fluxo === 'RECEITA' ? 100 : (tipo === 'COMUM' ? percEu : (tipo === 'INDIVIDUAL' && dono === 'EU' ? 100 : 0)), 
+      porcentagemRay: fluxo === 'RECEITA' ? 0 : (tipo === 'COMUM' ? percRay : (tipo === 'INDIVIDUAL' && dono === 'RAY' ? 100 : 0)),
     });
     setIsLoading(false);
     if (resultado.sucesso) router.back(); else Alert.alert('Erro', 'Não foi possível atualizar a tabela.');

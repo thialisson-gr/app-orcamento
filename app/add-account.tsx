@@ -3,11 +3,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useIdentity } from '../hooks/useIdentity'; // 👈 Importamos o Cérebro de Identidade
 import { useTheme } from '../hooks/useTheme';
 import { buscarRegraPadrao, salvarContaNoFirebase } from '../services/firebase/firestore';
 
 export default function AddAccountScreen() {
   const { colors, isDarkMode } = useTheme(); 
+  const { perfil } = useIdentity(); // 👈 Descobre quem está logado
+
   const [fluxo, setFluxo] = useState<'DESPESA' | 'RECEITA'>('DESPESA');
   const [nome, setNome] = useState('');
   const [tipo, setTipo] = useState<'COMUM' | 'INDIVIDUAL' | 'TERCEIROS'>('COMUM');
@@ -20,9 +23,23 @@ export default function AddAccountScreen() {
     if (!nome.trim()) return Alert.alert('Atenção', 'Digite um nome para a tabela.');
     const percEu = parseInt(porcentagemEu) || 0;
     const percRay = 100 - percEu;
+    
+    // 🛡️ LÓGICA DE DONO CORRIGIDA PARA A CRIAÇÃO
+    let donoFinal = undefined;
+    if (fluxo === 'RECEITA' || (fluxo === 'DESPESA' && tipo === 'TERCEIROS')) {
+      donoFinal = perfil || 'EU'; // O app "carimba" a tabela com quem criou
+    } else if (fluxo === 'DESPESA' && tipo === 'INDIVIDUAL') {
+      donoFinal = dono; // Pega o botão clicado na tela (Eu ou Ray)
+    }
+
     const res = await salvarContaNoFirebase({
-      nome, tipo: fluxo === 'RECEITA' ? ('RECEITA' as any) : tipo, dono: fluxo === 'RECEITA' ? undefined : (tipo === 'INDIVIDUAL' ? dono : undefined), porcentagemEu: fluxo === 'RECEITA' ? 100 : (tipo === 'COMUM' ? percEu : (tipo === 'INDIVIDUAL' && dono === 'EU' ? 100 : 0)), porcentagemRay: fluxo === 'RECEITA' ? 0 : (tipo === 'COMUM' ? percRay : (tipo === 'INDIVIDUAL' && dono === 'RAY' ? 100 : 0)),
+      nome, 
+      tipo: fluxo === 'RECEITA' ? ('RECEITA' as any) : tipo, 
+      dono: donoFinal, // 👈 Agora manda a etiqueta correta para o Firebase
+      porcentagemEu: fluxo === 'RECEITA' ? 100 : (tipo === 'COMUM' ? percEu : (tipo === 'INDIVIDUAL' && dono === 'EU' ? 100 : 0)), 
+      porcentagemRay: fluxo === 'RECEITA' ? 0 : (tipo === 'COMUM' ? percRay : (tipo === 'INDIVIDUAL' && dono === 'RAY' ? 100 : 0)),
     });
+    
     if (res.sucesso) router.back(); else Alert.alert('Erro', 'Falha ao salvar.');
   };
 
@@ -49,7 +66,6 @@ export default function AddAccountScreen() {
           <>
             <View style={styles.formGroup}>
               <Text style={[styles.label, { color: colors.text }]}>Regra de Divisão</Text>
-              {/* 👇 O BOTÃO DE TERCEIROS VOLTOU PARA A FILEIRA AQUI */}
               <View style={styles.row}>
                 <TouchableOpacity style={[styles.chip, { backgroundColor: isDarkMode ? '#1e293b' : '#f8fafc', borderColor: isDarkMode ? '#475569' : '#e2e8f0' }, tipo === 'COMUM' && { backgroundColor: colors.accentLight, borderColor: colors.accent }]} onPress={() => setTipo('COMUM')}><Text style={[styles.chipText, { color: isDarkMode ? '#cbd5e1' : '#64748b' }, tipo === 'COMUM' && { color: colors.accent, fontWeight: 'bold' }]}>Casal</Text></TouchableOpacity>
                 <TouchableOpacity style={[styles.chip, { backgroundColor: isDarkMode ? '#1e293b' : '#f8fafc', borderColor: isDarkMode ? '#475569' : '#e2e8f0' }, tipo === 'INDIVIDUAL' && { backgroundColor: colors.accentLight, borderColor: colors.accent }]} onPress={() => setTipo('INDIVIDUAL')}><Text style={[styles.chipText, { color: isDarkMode ? '#cbd5e1' : '#64748b' }, tipo === 'INDIVIDUAL' && { color: colors.accent, fontWeight: 'bold' }]}>Individual</Text></TouchableOpacity>

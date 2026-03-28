@@ -6,6 +6,7 @@ import { signOut } from 'firebase/auth';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Modal, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useAccounts } from '../../hooks/useAccounts';
+import { useIdentity } from '../../hooks/useIdentity'; // 👈 Importado o hook de identidade!
 import { useTheme } from '../../hooks/useTheme';
 import { useTransactions } from '../../hooks/useTransactions';
 import { auth } from '../../services/firebase/config';
@@ -17,6 +18,7 @@ export default function ProfileScreen() {
   const { isDarkMode, activeTheme, setTheme, colors } = useTheme(); 
   const { contas } = useAccounts();
   const { transacoes } = useTransactions();
+  const { perfil } = useIdentity(); // 👈 Descobrindo quem está logado
   
   const [modalRegraVisible, setModalRegraVisible] = useState(false);
   const [regraEu, setRegraEu] = useState(50);
@@ -33,6 +35,9 @@ export default function ProfileScreen() {
   const emailLogado = user?.email || 'Usuário Desconhecido';
   const inicial = emailLogado.charAt(0).toUpperCase();
   const nomeExibicao = emailLogado.split('@')[0];
+
+  // 👈 Define o nome do parceiro para o PDF
+  const nomeDoParceiro = perfil === 'RAY' ? 'Thialisson' : 'Rayane';
 
   useEffect(() => { buscarRegraPadrao().then(regra => setRegraEu(regra.me)); }, []);
 
@@ -124,8 +129,8 @@ export default function ProfileScreen() {
 
       // Variáveis para somar os totais separados
       let totalComum = 0;
-      let totalComumEu = 0;
-      let totalComumRay = 0;
+      let totalMinhaParte = 0; // 👈 Dinâmico
+      let totalParteParceiro = 0; // 👈 Dinâmico
       let totalIndividual = 0;
       let totalTerceiros = 0;
       let temAlgumaDespesa = false;
@@ -168,11 +173,20 @@ export default function ProfileScreen() {
           totalComum += totalConta;
           
           // Calcula a divisão baseada na regra específica DESTA tabela
-          const percEu = conta.splitRule?.me ?? 50;
-          const percRay = conta.splitRule?.spouse ?? (100 - percEu);
+          const percThialisson = conta.splitRule?.me ?? 50;
+          const percRayane = conta.splitRule?.spouse ?? (100 - percThialisson);
           
-          totalComumEu += totalConta * (percEu / 100);
-          totalComumRay += totalConta * (percRay / 100);
+          const valorThialisson = totalConta * (percThialisson / 100);
+          const valorRayane = totalConta * (percRayane / 100);
+          
+          // 👈 A Inversão Matemática Acontece Aqui!
+          if (perfil === 'RAY') {
+            totalMinhaParte += valorRayane;
+            totalParteParceiro += valorThialisson;
+          } else {
+            totalMinhaParte += valorThialisson;
+            totalParteParceiro += valorRayane;
+          }
           
         } else if (conta.tipo === 'INDIVIDUAL') {
           totalIndividual += totalConta;
@@ -183,7 +197,7 @@ export default function ProfileScreen() {
         html += `</table><div class="total-tabela">Total da Tabela: R$ ${totalConta.toFixed(2).replace('.', ',')}</div></div>`;
       });
 
-      // Renderiza os totais no final do documento
+      // Renderiza os totais no final do documento com os nomes dinâmicos
       if (!temAlgumaDespesa) {
         html += `<div class="vazio">Nenhuma despesa registrada para o mês de ${mesFormatado}.</div>`;
       } else {
@@ -197,8 +211,8 @@ export default function ProfileScreen() {
                 <span>R$ ${totalComum.toFixed(2).replace('.', ',')}</span>
               </div>
               <div class="linha-divisao">
-                <span>Minha Parte: R$ ${totalComumEu.toFixed(2).replace('.', ',')}</span>
-                <span>Parte da Ray: R$ ${totalComumRay.toFixed(2).replace('.', ',')}</span>
+                <span>Minha Parte: R$ ${totalMinhaParte.toFixed(2).replace('.', ',')}</span>
+                <span>Parte de ${nomeDoParceiro}: R$ ${totalParteParceiro.toFixed(2).replace('.', ',')}</span>
               </div>
             </div>
 
