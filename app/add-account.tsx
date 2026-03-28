@@ -21,21 +21,32 @@ export default function AddAccountScreen() {
 
   const handleSalvar = async () => {
     if (!nome.trim()) return Alert.alert('Atenção', 'Digite um nome para a tabela.');
-    const percEu = parseInt(porcentagemEu) || 0;
-    const percRay = 100 - percEu;
     
-    // 🛡️ LÓGICA DE DONO CORRIGIDA PARA A CRIAÇÃO
+    // 👇 LÓGICA DE PORCENTAGEM INTELIGENTE
+    const valorDigitado = parseInt(porcentagemEu) || 0;
+    let percEu = 50;
+    let percRay = 50;
+    
+    // Garante que se a Ray digitar "40" em "Sua porcentagem", isso vá para a conta DELA no banco!
+    if (perfil === 'RAY') {
+      percRay = valorDigitado;
+      percEu = 100 - valorDigitado;
+    } else {
+      percEu = valorDigitado;
+      percRay = 100 - valorDigitado;
+    }
+
     let donoFinal = undefined;
     if (fluxo === 'RECEITA' || (fluxo === 'DESPESA' && tipo === 'TERCEIROS')) {
-      donoFinal = perfil || 'EU'; // O app "carimba" a tabela com quem criou
+      donoFinal = perfil || 'EU'; 
     } else if (fluxo === 'DESPESA' && tipo === 'INDIVIDUAL') {
-      donoFinal = dono; // Pega o botão clicado na tela (Eu ou Ray)
+      donoFinal = dono; 
     }
 
     const res = await salvarContaNoFirebase({
       nome, 
       tipo: fluxo === 'RECEITA' ? ('RECEITA' as any) : tipo, 
-      dono: donoFinal, // 👈 Agora manda a etiqueta correta para o Firebase
+      dono: donoFinal, 
       porcentagemEu: fluxo === 'RECEITA' ? 100 : (tipo === 'COMUM' ? percEu : (tipo === 'INDIVIDUAL' && dono === 'EU' ? 100 : 0)), 
       porcentagemRay: fluxo === 'RECEITA' ? 0 : (tipo === 'COMUM' ? percRay : (tipo === 'INDIVIDUAL' && dono === 'RAY' ? 100 : 0)),
     });

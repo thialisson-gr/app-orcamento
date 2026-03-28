@@ -4,6 +4,7 @@ import React, { useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Dimensions, LayoutAnimation, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { LineChart, PieChart } from 'react-native-gifted-charts';
 import { useAccounts } from '../../hooks/useAccounts';
+import { useIdentity } from '../../hooks/useIdentity'; // 👈 Identidade importada!
 import { useTheme } from '../../hooks/useTheme';
 import { useTransactions } from '../../hooks/useTransactions';
 
@@ -21,6 +22,7 @@ export default function StatsScreen() {
   const { transacoes, loading: loadingTx } = useTransactions();
   const { contas, loadingContas } = useAccounts();
   const { colors, isDarkMode } = useTheme(); 
+  const { perfil } = useIdentity(); // 👈 Quem está olhando o gráfico?
   const scrollGraficoRef = useRef<ScrollView>(null);
 
   const [dataFiltro, setDataFiltro] = useState(new Date());
@@ -62,11 +64,13 @@ export default function StatsScreen() {
         return;
       }
 
-      if (conta.tipo === 'INDIVIDUAL' && conta.dono === 'RAY') return;
+      if (conta.tipo === 'INDIVIDUAL' && conta.dono !== perfil) return;
 
       let suaParte = t.amount;
       if (conta.tipo === 'COMUM') {
-        suaParte = t.amount * ((conta.splitRule?.me ?? 100) / 100);
+        // 👈 INVERSÃO INTELIGENTE AQUI
+        const perc = perfil === 'RAY' ? (conta.splitRule?.spouse ?? 50) : (conta.splitRule?.me ?? 50);
+        suaParte = t.amount * (perc / 100);
       }
 
       if (t.type === 'DESPESA' && suaParte > 0) {
@@ -77,7 +81,7 @@ export default function StatsScreen() {
     });
 
     return { totalDespesas: totalDesp, totalTerceirosCard: totalTerceiros, despesasPorTabela: porTabela };
-  }, [transacoes, contas, mesAtual, anoAtual]);
+  }, [transacoes, contas, mesAtual, anoAtual, perfil]);
 
   const tabelasParaSoma = useMemo(() => {
     return Object.keys(despesasPorTabela)
@@ -111,10 +115,12 @@ export default function StatsScreen() {
         if (d.getMonth() === dataRef.getMonth() && d.getFullYear() === dataRef.getFullYear()) {
           const conta = contas.find(c => c.nome === t.accountId);
           
-          if (conta && t.type === 'DESPESA' && !(conta.tipo === 'TERCEIROS' || t.isForThirdParty) && !(conta.tipo === 'INDIVIDUAL' && conta.dono === 'RAY')) {
+          if (conta && t.type === 'DESPESA' && !(conta.tipo === 'TERCEIROS' || t.isForThirdParty) && !(conta.tipo === 'INDIVIDUAL' && conta.dono !== perfil)) {
             let suaParte = t.amount;
             if (conta.tipo === 'COMUM') {
-              suaParte = t.amount * ((conta.splitRule?.me ?? 100) / 100);
+              // 👈 INVERSÃO INTELIGENTE AQUI TAMBÉM
+              const perc = perfil === 'RAY' ? (conta.splitRule?.spouse ?? 50) : (conta.splitRule?.me ?? 50);
+              suaParte = t.amount * (perc / 100);
             }
             totalGastoNoMes += suaParte;
           }
@@ -123,8 +129,6 @@ export default function StatsScreen() {
 
       const isMesAtual = offset === 0;
       const corPonto = isMesAtual ? '#f59e0b' : colors.accent;
-      
-      // Formatação Completa com ponto (Ex: 1.100)
       const valorFormatado = Math.round(totalGastoNoMes).toLocaleString('pt-BR');
 
       return {
@@ -137,56 +141,22 @@ export default function StatsScreen() {
           marginTop: 0,
           paddingLeft: 8,
         },
-        
-        // 👇 O PONTO PREMIUM COM A LINHA TRACEJADA DESCENDO
         customDataPoint: () => (
           <View style={{ alignItems: 'center', justifyContent: 'center' }}>
-            {/* Linha Tracejada - Desce 300px, o gráfico corta no eixo X automaticamente */}
             <View style={{ position: 'absolute', top: 12, width: 0, height: 300, borderLeftWidth: 1, borderStyle: 'dashed', borderColor: isDarkMode ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.2)' }} />
-            
-            {/* O Círculo Central */}
-            <View style={{ 
-              width: 16, 
-              height: 16, 
-              borderRadius: 9, 
-              backgroundColor: isDarkMode ? '#0f172a' : '#fff', 
-              borderWidth: 3, 
-              borderColor: corPonto,
-              shadowColor: corPonto,
-              shadowOffset: { width: 0, height: 2 },
-              shadowOpacity: 0.5,
-              shadowRadius: 3,
-              elevation: 4,
-              marginTop: -5
-            }} />
+            <View style={{ width: 16, height: 16, borderRadius: 9, backgroundColor: isDarkMode ? '#0f172a' : '#fff', borderWidth: 3, borderColor: corPonto, shadowColor: corPonto, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.5, shadowRadius: 3, elevation: 4, marginTop: -5 }} />
           </View>
         ),
-
-        // 👇 A PÍLULA FLUTUANTE COM O NÚMERO
         dataPointLabelComponent: () => (
-          <View style={{ 
-            backgroundColor: isMesAtual ? corPonto : (isDarkMode ? '#334155' : '#f1f5f9'), 
-            paddingHorizontal: 2, 
-            paddingVertical: 3, 
-            borderRadius: 10, 
-            marginBottom: 10, 
-            marginLeft: 9, // Metade da largura da pílula para centralizar
-            marginTop: 6,
-            transform: [{ translateX: -14 }], // Centraliza a pílula em cima do ponto
-            shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 2, elevation: 2,
-            minWidth: 50,
-            alignItems: 'center'
-          }}>
-            <Text style={{ color: isMesAtual ? '#fcfcfc' : colors.text, fontSize: 13, fontWeight: 'bold' }}>
-              {valorFormatado}
-            </Text>
+          <View style={{ backgroundColor: isMesAtual ? corPonto : (isDarkMode ? '#334155' : '#f1f5f9'), paddingHorizontal: 2, paddingVertical: 3, borderRadius: 10, marginBottom: 10, marginLeft: 9, marginTop: 6, transform: [{ translateX: -14 }], shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 2, elevation: 2, minWidth: 50, alignItems: 'center' }}>
+            <Text style={{ color: isMesAtual ? '#fcfcfc' : colors.text, fontSize: 13, fontWeight: 'bold' }}>{valorFormatado}</Text>
           </View>
         ),
       };
     });
-  }, [transacoes, contas, colors, isDarkMode]);
+  }, [transacoes, contas, colors, isDarkMode, perfil]);
 
-  const larguraTotalBarras = offsetsMeses.length * 85; // Aumentei um pouco o espaçamento para as tooltips não baterem
+  const larguraTotalBarras = offsetsMeses.length * 85; 
   const temDadosEvolucao = dadosEvolucaoPremiumLine.some(item => item.value > 0);
 
   // --- LÓGICA 3: O CARTÃO BALANÇO (APENAS SUA PARTE MATEMÁTICA) ---
@@ -201,11 +171,13 @@ export default function StatsScreen() {
       if (!conta) return;
 
       if (conta.tipo === 'TERCEIROS' || t.isForThirdParty) return;
-      if (conta.tipo === 'INDIVIDUAL' && conta.dono === 'RAY') return;
+      if (conta.tipo === 'INDIVIDUAL' && conta.dono !== perfil) return;
 
       let suaParte = t.amount;
       if (conta.tipo === 'COMUM') {
-        suaParte = t.amount * ((conta.splitRule?.me ?? 100) / 100);
+        // 👈 INVERSÃO INTELIGENTE AQUI TAMBÉM
+        const perc = perfil === 'RAY' ? (conta.splitRule?.spouse ?? 50) : (conta.splitRule?.me ?? 50);
+        suaParte = t.amount * (perc / 100);
       }
 
       if (suaParte > 0) {
@@ -223,7 +195,7 @@ export default function StatsScreen() {
         if (a.tipo === 'DESPESA' && b.tipo === 'RECEITA') return 1;
         return b.valor - a.valor;
       });
-  }, [transacoes, contas, mesAtual, anoAtual]);
+  }, [transacoes, contas, mesAtual, anoAtual, perfil]);
 
   const saldoFinalBalanco = useMemo(() => {
     return tabelasBalanco.reduce((acc, t) => t.tipo === 'RECEITA' ? acc + t.valor : acc - t.valor, 0);
@@ -318,7 +290,7 @@ export default function StatsScreen() {
           </View>
         )}
 
-        {/* GRÁFICO DE ÁREA PREMIUM (ATUALIZADO) */}
+        {/* GRÁFICO DE ÁREA PREMIUM */}
         <View style={{ backgroundColor: colors.card, borderRadius: 10, paddingVertical: 8, marginBottom: 20, elevation: 2, borderColor: isDarkMode ? '#334155' : 'transparent', borderWidth: isDarkMode ? 1 : 0 }}>
           <Text style={{ fontSize: 16, fontWeight: 'bold', color: colors.text, textAlign: 'center', marginBottom: 2 }}>Tendência e Previsão</Text>
           <Text style={{ fontSize: 12, color: colors.subText, textAlign: 'center', marginBottom: 10 }}>Evolução dos seus gastos</Text>
@@ -330,13 +302,12 @@ export default function StatsScreen() {
                 scrollGraficoRef.current?.scrollTo({ x: meioDoGrafico, animated: false });
               }}
             >
-              {/* 👇 A MÁGICA ESTÁ AQUI: paddingTop 60 (teto) e paddingBottom 40 (chão) */}
               <View style={{ zIndex: 0,paddingHorizontal: 16, paddingTop: 60, paddingBottom: 10 }}>
                 <LineChart
                   data={dadosEvolucaoPremiumLine}
-                  height={140} // Reduzi a altura da linha interna para sobrar mais espaço fora
-                  overflowTop={100} // Libera o teto
-                  overflowBottom={50} // Libera o chão
+                  height={140} 
+                  overflowTop={100} 
+                  overflowBottom={50} 
                   areaChart 
                   curved={false}
                   initialSpacing={20}
@@ -351,8 +322,7 @@ export default function StatsScreen() {
                   xAxisColor={isDarkMode ? '#334155' : '#e2e8f0'}
                   yAxisThickness={0}
                   hideYAxisText 
-                  disableScroll={true}                   
-                  // 👇 Tirei a margem gigante que estava empurrando o texto pra fora
+                  disableScroll={true}                  
                   xAxisLabelTextStyle={{ color: colors.subText, fontSize: 13}} 
                 />
               </View>

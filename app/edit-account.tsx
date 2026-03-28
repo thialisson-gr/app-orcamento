@@ -25,22 +25,31 @@ export default function EditAccountScreen() {
   const handleSalvar = async () => {
     if (!nome.trim()) return Alert.alert('Atenção', 'O nome não pode ficar vazio.');
     setIsLoading(true);
-    const percEu = parseInt(porcentagemEu) || 0;
-    const percRay = 100 - percEu;
+    
+    // 👇 LÓGICA DE PORCENTAGEM INTELIGENTE
+    const valorDigitado = parseInt(porcentagemEu) || 0;
+    let percEu = 50;
+    let percRay = 50;
+    
+    if (perfil === 'RAY') {
+      percRay = valorDigitado;
+      percEu = 100 - valorDigitado;
+    } else {
+      percEu = valorDigitado;
+      percRay = 100 - valorDigitado;
+    }
 
-    // 🛡️ LÓGICA DE DONO CORRIGIDA:
-    // Se for RECEITA, TERCEIROS ou INDIVIDUAL, o dono deve ser gravado!
     let donoFinal = null;
     if (fluxo === 'RECEITA' || tipo === 'TERCEIROS') {
-      donoFinal = perfil || 'EU'; // Carimba quem está segurando o celular
+      donoFinal = perfil || 'EU'; 
     } else if (tipo === 'INDIVIDUAL') {
-      donoFinal = dono; // Pega o que foi selecionado na tela (Minha / Ray)
+      donoFinal = dono; 
     }
 
     const resultado = await atualizarContaNoFirebase(id, nomeOriginal, {
       nome, 
       tipo: fluxo === 'RECEITA' ? 'RECEITA' : tipo, 
-      dono: donoFinal, // 👈 Agora manda a etiqueta correta pro Firebase
+      dono: donoFinal, 
       porcentagemEu: fluxo === 'RECEITA' ? 100 : (tipo === 'COMUM' ? percEu : (tipo === 'INDIVIDUAL' && dono === 'EU' ? 100 : 0)), 
       porcentagemRay: fluxo === 'RECEITA' ? 0 : (tipo === 'COMUM' ? percRay : (tipo === 'INDIVIDUAL' && dono === 'RAY' ? 100 : 0)),
     });
