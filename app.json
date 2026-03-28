@@ -7,7 +7,6 @@
     "icon": "./assets/images/icon.png",
     "scheme": "orcamentocasalapp",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
     "ios": {
       "supportsTablet": true
     },
@@ -18,7 +17,7 @@
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
-      "edgeToEdgeEnabled": true,
+      "package": "com.thialisson.appfinanceiro",
       "predictiveBackGestureEnabled": false
     },
     "web": {
@@ -44,6 +43,12 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "eeb8669a-08e1-4b71-b33a-6d6cd1dd9c41"
+      }
     }
   }
 }

@@ -1,7 +1,7 @@
 // app/(tabs)/stats.tsx
 import { Ionicons } from '@expo/vector-icons';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Dimensions, LayoutAnimation, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, UIManager, View } from 'react-native';
+import React, { useMemo, useRef, useState } from 'react';
+import { ActivityIndicator, Dimensions, LayoutAnimation, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { LineChart, PieChart } from 'react-native-gifted-charts';
 import { useAccounts } from '../../hooks/useAccounts';
 import { useTheme } from '../../hooks/useTheme';
@@ -22,12 +22,6 @@ export default function StatsScreen() {
   const { contas, loadingContas } = useAccounts();
   const { colors, isDarkMode } = useTheme(); 
   const scrollGraficoRef = useRef<ScrollView>(null);
-
-  useEffect(() => {
-    if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
-      UIManager.setLayoutAnimationEnabledExperimental(true);
-    }
-  }, []);
 
   const [dataFiltro, setDataFiltro] = useState(new Date());
   const mesAtual = dataFiltro.getMonth();
