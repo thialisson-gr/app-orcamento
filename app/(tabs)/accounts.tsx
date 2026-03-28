@@ -1,10 +1,11 @@
 // app/(tabs)/accounts.tsx
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient'; // 👈 IMPORTAMOS O GRADIENTE
+import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import React, { useState } from 'react';
 import { ActivityIndicator, Alert, Platform, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { useAccounts } from '../../hooks/useAccounts';
+import { useIdentity } from '../../hooks/useIdentity'; // 👈 IMPORTANDO IDENTIDADE AQUI
 import { useTheme } from '../../hooks/useTheme';
 import { useTransactions } from '../../hooks/useTransactions';
 import { deletarContaNoFirebase } from '../../services/firebase/firestore';
@@ -23,6 +24,7 @@ export default function AccountsScreen() {
   const { contas, loadingContas } = useAccounts();
   const { transacoes, loading } = useTransactions();
   const { colors, isDarkMode } = useTheme(); 
+  const { perfil } = useIdentity(); // 👈 PEGANDO O PERFIL AQUI
 
   const [dataFiltro, setDataFiltro] = useState(new Date());
   const [filtroAtivo, setFiltroAtivo] = useState('TODAS');
@@ -119,6 +121,20 @@ export default function AccountsScreen() {
               gradColors = ['#f43f5e', '#e11d48']; // Rosa/Vermelho
             }
 
+            // 👇 LÓGICA DE PORCENTAGEM DINÂMICA
+            let minhaPerc = 50;
+            let parcPerc = 50;
+            if (conta.tipo === 'COMUM') {
+              // Se for Rayane, inverte os valores
+              if (perfil === 'RAY') {
+                minhaPerc = conta.splitRule?.spouse ?? 50;
+                parcPerc = conta.splitRule?.me ?? 50;
+              } else {
+                minhaPerc = conta.splitRule?.me ?? 50;
+                parcPerc = conta.splitRule?.spouse ?? 50;
+              }
+            }
+
             return (
               <View key={conta.id} style={{ backgroundColor: colors.card, borderRadius: 8, marginBottom: 16, elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, overflow: 'hidden', borderWidth: isDarkMode ? 1 : 0, borderColor: '#334155' }}>
                 
@@ -132,7 +148,17 @@ export default function AccountsScreen() {
                     <View style={{ width: 40, height: 40, borderRadius: 6, backgroundColor: 'rgba(255,255,255,0.25)', justifyContent: 'center', alignItems: 'center' }}>
                       <Ionicons name={iconName as any} size={20} color="#ffffff" />
                     </View>
-                    <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#ffffff' }}>{conta.nome}</Text>
+                    
+                    {/* 👇 ONDE A MÁGICA DO SUBTÍTULO ACONTECE */}
+                    <View style={{ flexDirection: 'column' }}>
+                      <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#ffffff' }}>{conta.nome}</Text>
+                      {conta.tipo === 'COMUM' && (
+                        <Text style={{ fontSize: 11, color: 'rgba(255,255,255,0.9)', marginTop: 1 }}>
+                          Você: {minhaPerc}% • Parceiro: {parcPerc}%
+                        </Text>
+                      )}
+                    </View>
+                    
                   </TouchableOpacity>
                   <TouchableOpacity style={{ padding: 4 }} onPress={() => handleOpcoesConta(conta)}>
                     <Ionicons name="ellipsis-horizontal" size={24} color="rgba(255,255,255,0.9)" />
