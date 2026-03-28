@@ -5,6 +5,7 @@ import { router } from 'expo-router';
 import React, { useState } from 'react';
 import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { useAccounts } from '../../hooks/useAccounts';
+import { useIdentity } from '../../hooks/useIdentity'; // 👈 Cérebro de Identidade importado!
 import { useTheme } from '../../hooks/useTheme';
 import { useTransactions } from '../../hooks/useTransactions';
 import { deletarTransacaoDoFirebase } from '../../services/firebase/firestore';
@@ -15,6 +16,7 @@ export default function DashboardScreen() {
   const { transacoes, loading: loadingTransacoes } = useTransactions();
   const { contas, loadingContas } = useAccounts();
   const { colors, isDarkMode } = useTheme(); 
+  const { perfil } = useIdentity(); // 👈 Descobrindo quem está logado!
 
   const [dataFiltro, setDataFiltro] = useState(new Date());
   const mesAtual = dataFiltro.getMonth();
@@ -26,25 +28,43 @@ export default function DashboardScreen() {
 
   let totalDespesasConjuntas = 0;
   let suaParteConjunta = 0;
-  let parteRayConjunta = 0;
+  let parteDoOutroConjunta = 0; // 👈 Variável neutra para a conta do parceiro
   let seusGastosIndividuais = 0;
   let aReceberTerceiros = 0;
   let suaReceitaTotal = 0;
 
+  // Lógica de nomes dinâmicos
+  const nomeDoParceiro = perfil === 'RAY' ? 'Parte de Thialisson' : 'Parte de Rayane';
+
   transacoes.forEach((t) => {
     const dataPag = new Date(t.paymentDate || t.date);
     if (dataPag.getMonth() !== mesAtual || dataPag.getFullYear() !== anoAtual) return;
+    
     if (t.type === 'RECEITA') { suaReceitaTotal += t.amount; return; } 
     if (t.isForThirdParty) { aReceberTerceiros += t.amount; return; }
 
     const conta = contas.find((c) => c.nome === t.accountId);
     if (conta) {
-      if (conta.tipo === 'TERCEIROS') aReceberTerceiros += t.amount;
+      if (conta.tipo === 'TERCEIROS') {
+        aReceberTerceiros += t.amount;
+      } 
       else if (conta.tipo === 'COMUM') {
         totalDespesasConjuntas += t.amount;
-        suaParteConjunta += t.amount * (conta.splitRule.me / 100);
-        parteRayConjunta += t.amount * (conta.splitRule.spouse / 100);
-      } else if (conta.tipo === 'INDIVIDUAL' && conta.dono === 'EU') {
+        
+        // Separa quem é quem na matemática do Firestore
+        const valorThialisson = t.amount * (conta.splitRule.me / 100);
+        const valorRayane = t.amount * (conta.splitRule.spouse / 100);
+
+        // Inverte a matemática dependendo de quem está olhando o celular
+        if (perfil === 'RAY') {
+          suaParteConjunta += valorRayane;
+          parteDoOutroConjunta += valorThialisson;
+        } else {
+          suaParteConjunta += valorThialisson;
+          parteDoOutroConjunta += valorRayane;
+        }
+      } 
+      else if (conta.tipo === 'INDIVIDUAL' && conta.dono === perfil) {
         seusGastosIndividuais += t.amount; 
       }
     }
@@ -65,7 +85,6 @@ export default function DashboardScreen() {
     } else if (t.isFixed && t.fixedDetails?.parentId) {
       if (!parentIdsVistos.has(t.fixedDetails.parentId)) {
         parentIdsVistos.add(t.fixedDetails.parentId);
-        // 👇 CORREÇÃO AQUI: Mantém a descrição limpa, sem o (1/9)
         transacoesRecentes.push({ ...t, descricao: t.descricao, dateParaExibir: t.purchaseDate || t.date });
       }
     } else transacoesRecentes.push({ ...t, dateParaExibir: t.purchaseDate || t.date });
@@ -116,9 +135,15 @@ export default function DashboardScreen() {
           <Text style={{ fontSize: 12, color: colors.subText, marginBottom: 4 }}>Despesas Conjuntas</Text>
           <Text style={{ fontSize: 24, fontWeight: 'bold', color: colors.text, marginBottom: 16 }}>R$ {totalDespesasConjuntas.toFixed(2)}</Text>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', backgroundColor: isDarkMode ? '#0f172a' : '#f8fafc', borderRadius: 5, padding: 12 }}>
-            <View style={{ flex: 1 }}><Text style={{ fontSize: 11, color: colors.subText, marginBottom: 2 }}>Sua Parte</Text><Text style={{ fontSize: 14, fontWeight: '700', color: colors.text }}>R$ {suaParteConjunta.toFixed(2)}</Text></View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 11, color: colors.subText, marginBottom: 2 }}>Sua Parte</Text>
+              <Text style={{ fontSize: 14, fontWeight: '700', color: colors.text }}>R$ {suaParteConjunta.toFixed(2)}</Text>
+            </View>
             <View style={{ width: 1, backgroundColor: isDarkMode ? '#334155' : '#e2e8f0', marginHorizontal: 12 }} />
-            <View style={{ flex: 1 }}><Text style={{ fontSize: 11, color: colors.subText, marginBottom: 2 }}>Parte Ray</Text><Text style={{ fontSize: 14, fontWeight: '700', color: colors.text }}>R$ {parteRayConjunta.toFixed(2)}</Text></View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 11, color: colors.subText, marginBottom: 2 }}>{nomeDoParceiro}</Text>
+              <Text style={{ fontSize: 14, fontWeight: '700', color: colors.text }}>R$ {parteDoOutroConjunta.toFixed(2)}</Text>
+            </View>
           </View>
         </View>
 

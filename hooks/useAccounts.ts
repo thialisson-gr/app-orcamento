@@ -1,18 +1,16 @@
 // hooks/useAccounts.ts
 import { collection, onSnapshot, query } from "firebase/firestore";
 import { useEffect, useState } from "react";
-import { db } from "../services/firebase/config"; // 👈 Ajustado o caminho!
-import { useIdentity } from "./useIdentity"; // 👈 Importamos o Cérebro de Identidade!
+import { db } from "../services/firebase/config";
+import { useIdentity } from "./useIdentity";
 
 export function useAccounts() {
   const [contas, setContas] = useState<any[]>([]);
   const [loadingContas, setLoadingContas] = useState(true);
   
-  // Pergunta pro app: Quem está segurando esse celular? ("EU" ou "RAY")
   const { perfil, loadingIdentity } = useIdentity(); 
 
   useEffect(() => {
-    // Se ainda está descobrindo quem é o usuário, não faz nada
     if (loadingIdentity) return;
 
     const q = query(collection(db, "contas"));
@@ -23,19 +21,17 @@ export function useAccounts() {
       querySnapshot.forEach((doc) => {
         const data = doc.data();
 
-        // 🛡️ REGRAS DO MODO BANCO (A Separação Absoluta)
-        // Se a conta for INDIVIDUAL e tiver um dono registrado:
-        if (data.tipo === "INDIVIDUAL" && data.dono) {
+        // 🛡️ NOVA REGRA DE NEGÓCIOS BLINDADA:
+        // Se a conta for INDIVIDUAL, TERCEIROS ou RECEITA, exige que seja o dono!
+        if (data.tipo === "INDIVIDUAL" || data.tipo === "TERCEIROS" || data.tipo === "RECEITA") {
           
-          // Só mostra se o dono da conta for a mesma pessoa segurando o celular
+          // O perfil ("EU" ou "RAY") precisa bater com o dono da tabela
           if (data.dono === perfil) {
             listaContas.push({ id: doc.id, ...data });
           }
-          // Se for do outro, ela simplesmente não existe pra esse celular!
           
         } else {
-          // Contas do tipo COMUM, TERCEIROS, RECEITA, ou contas muito antigas sem dono:
-          // Ambos podem ver e interagir.
+          // Apenas contas do tipo COMUM passam direto para os dois verem e interagirem
           listaContas.push({ id: doc.id, ...data });
         }
       });
