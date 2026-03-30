@@ -7,8 +7,7 @@ import { ActivityIndicator, Alert, Platform, ScrollView, StyleSheet, Text, Touch
 import { useAccounts } from '../../hooks/useAccounts';
 import { useTheme } from '../../hooks/useTheme';
 import { useTransactions } from '../../hooks/useTransactions';
-import { alternarStatusPagamento, deletarTransacaoDoFirebase, pagarFaturaCompleta } from '../../services/firebase/firestore';
-
+import { alternarStatusPagamento, deletarMultiplasTransacoes, deletarTransacaoDoFirebase, pagarFaturaCompleta } from '../../services/firebase/firestore';
 const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
 export default function AccountDetailScreen() {
@@ -94,10 +93,43 @@ export default function AccountDetailScreen() {
   };
 
   const handleOpcoesTransacao = (item: any) => {
+    // 👇 Detecta se é uma transação em série
+    const isRecorrente = item.isInstallment || item.isFixed;
+    const parentId = item.isInstallment ? item.installmentDetails?.parentId : item.fixedDetails?.parentId;
+
     Alert.alert('Opções', `"${item.descricao}"?`, [
       { text: 'Cancelar', style: 'cancel' },
-      { text: 'Editar', onPress: () => router.push({ pathname: '/edit-transaction', params: { id: item.id, tipoOriginal: item.type, valorOriginal: item.amount.toString(), descOriginal: item.descricao, contaOriginal: item.accountId, dataOriginal: item.paymentDate || item.date, tagOriginal: item.tags ? item.tags[0] : '', isTerceiroOriginal: item.isForThirdParty ? 'true' : 'false', nomeTerceiroOriginal: item.thirdPartyName || '' } }) },
-      { text: 'Eliminar', style: 'destructive', onPress: () => deletarTransacaoDoFirebase(item.id) }
+      { text: 'Editar', onPress: () => router.push({ pathname: '/edit-transaction', params: { 
+          id: item.id, tipoOriginal: item.type, valorOriginal: item.amount.toString(), descOriginal: item.descricao, contaOriginal: item.accountId, dataOriginal: item.paymentDate || item.date, tagOriginal: item.tags ? item.tags[0] : '', isTerceiroOriginal: item.isForThirdParty ? 'true' : 'false', nomeTerceiroOriginal: item.thirdPartyName || '',
+          // Enviamos o DNA da transação para a tela de edição
+          isRecorrente: isRecorrente ? 'true' : 'false',
+          parentId: parentId || ''
+        } }) 
+      },
+      { text: 'Eliminar', style: 'destructive', onPress: () => {
+          
+          if (isRecorrente && parentId) {
+            // 👇 Se for em série, o aplicativo pergunta!
+            Alert.alert('Excluir Recorrência', 'Esta transação faz parte de uma assinatura/parcelamento. Deseja apagar apenas esta ou todas as parcelas futuras também?', [
+              { text: 'Cancelar', style: 'cancel' },
+              { text: 'Apenas Esta', onPress: () => deletarTransacaoDoFirebase(item.id) },
+              { text: 'Esta e Futuras', style: 'destructive', onPress: () => {
+                  const dataReferencia = new Date(item.paymentDate || item.date).getTime();
+                  // Caça o DNA das próximas parcelas
+                  const futurasIds = transacoes.filter(t => {
+                    const tParentId = t.isInstallment ? t.installmentDetails?.parentId : t.fixedDetails?.parentId;
+                    const tData = new Date(t.paymentDate || t.date).getTime();
+                    return tParentId === parentId && tData >= dataReferencia;
+                  }).map(t => t.id);
+
+                  deletarMultiplasTransacoes(futurasIds);
+              }}
+            ]);
+          } else {
+            deletarTransacaoDoFirebase(item.id);
+          }
+
+      }}
     ]);
   };
 

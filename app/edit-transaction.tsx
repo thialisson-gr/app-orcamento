@@ -7,7 +7,8 @@ import { Alert, Platform, ScrollView, StyleSheet, Switch, Text, TextInput, Touch
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view'; // 👈 IMPORTANTE
 import { useAccounts } from '../hooks/useAccounts';
 import { useTheme } from '../hooks/useTheme';
-import { atualizarTransacaoNoFirebase } from '../services/firebase/firestore';
+import { useTransactions } from '../hooks/useTransactions'; // 👈 Adicionado
+import { atualizarTransacaoNoFirebase, atualizarTransacoesRecorrentes } from '../services/firebase/firestore'; // 👈 Adicionado
 
 const TAGS_DESPESA = ['🛒 Super', '🍔 Lazer', '🏠 Casa', '🚗 Transp.', '🏥 Saúde', '🛍️ Compras', '⚡ Contas', '🏷️ Outros'];
 const TAGS_RECEITA = ['💰 Salário', '💸 Pix', '🏦 Transf.', '📈 Rends.', '🎁 Outros'];
@@ -17,6 +18,7 @@ export default function EditTransactionScreen() {
   const id = params.id as string;
   
   const { contas } = useAccounts();
+  const { transacoes } = useTransactions();
   const { colors, isDarkMode } = useTheme(); 
 
   const [tipo, setTipo] = useState<'DESPESA' | 'RECEITA'>('DESPESA');
@@ -80,15 +82,48 @@ export default function EditTransactionScreen() {
 
   const handleSalvar = async () => {
     if (!valor || !descricao) return Alert.alert('Atenção', 'Preencha o valor e a descrição.');
-    setIsLoading(true);
+    
+    const isRecorrente = params.isRecorrente === 'true';
+    const parentId = params.parentId as string;
     const tagFinal = tagSelecionada.includes('Outros') && categoriaCustomizada ? categoriaCustomizada : tagSelecionada;
-    
-    const res = await atualizarTransacaoNoFirebase(id, {
-      tipo, valorFormatado: valor, descricao, contaSelecionada, tagSelecionada: tagFinal, isTerceiro: tipo === 'DESPESA' ? isTerceiro : false, nomeTerceiro, dataPagamento: dataAlvo.toLocaleDateString('pt-BR') 
-    });
-    
-    setIsLoading(false);
-    if (res.sucesso) router.back(); else Alert.alert('Erro', 'Falha ao atualizar.');
+
+    const salvarUnico = async () => {
+      setIsLoading(true);
+      const res = await atualizarTransacaoNoFirebase(id, {
+        tipo, valorFormatado: valor, descricao, contaSelecionada, tagSelecionada: tagFinal, isTerceiro: tipo === 'DESPESA' ? isTerceiro : false, nomeTerceiro, dataPagamento: dataAlvo.toLocaleDateString('pt-BR') 
+      });
+      setIsLoading(false);
+      if (res.sucesso) router.back(); else Alert.alert('Erro', 'Falha ao atualizar.');
+    };
+
+    if (isRecorrente && parentId) {
+      // 👇 Se for em série, o aplicativo pergunta ao salvar!
+      Alert.alert('Editar Recorrência', 'Esta transação faz parte de um parcelamento/assinatura. Deseja aplicar as alterações (Valor, Categoria e Tabela) para as futuras também?', [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Apenas Esta', onPress: salvarUnico },
+        { text: 'Esta e Futuras', onPress: async () => {
+            setIsLoading(true);
+            const dataReferencia = new Date(params.dataOriginal as string).getTime();
+            
+            // Caça as irmãs do futuro
+            const futurasIds = transacoes.filter(t => {
+              if (t.id === id) return false; 
+              const tParentId = t.isInstallment ? t.installmentDetails?.parentId : t.fixedDetails?.parentId;
+              const tData = new Date(t.paymentDate || t.date).getTime();
+              return tParentId === parentId && tData >= dataReferencia;
+            }).map(t => t.id);
+
+            const res = await atualizarTransacoesRecorrentes(id, futurasIds, {
+              tipo, valorFormatado: valor, descricao, contaSelecionada, tagSelecionada: tagFinal, isTerceiro: tipo === 'DESPESA' ? isTerceiro : false, nomeTerceiro, dataPagamento: dataAlvo.toLocaleDateString('pt-BR')
+            });
+
+            setIsLoading(false);
+            if (res.sucesso) router.back(); else Alert.alert('Erro', 'Falha ao atualizar em massa.');
+        }}
+      ]);
+    } else {
+      salvarUnico();
+    }
   };
 
   return (

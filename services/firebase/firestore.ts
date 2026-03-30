@@ -278,3 +278,58 @@ export const atualizarTransacaoNoFirebase = async (id: string, dados: any) => {
     return { sucesso: false, erro: error };
   }
 };
+
+export async function deletarMultiplasTransacoes(ids: string[]) {
+  try {
+    const batch = writeBatch(db);
+    ids.forEach(id => {
+      batch.delete(doc(db, "transacoes", id));
+    });
+    await batch.commit();
+    return true;
+  } catch (erro) {
+    return false;
+  }
+}
+
+export async function atualizarTransacoesRecorrentes(idAtual: string, futurasIds: string[], dados: any) {
+  try {
+    const batch = writeBatch(db);
+    const valorNumerico = typeof dados.valorFormatado === 'string'
+      ? parseFloat(dados.valorFormatado.replace(/\./g, '').replace(',', '.'))
+      : dados.valorFormatado;
+
+    const [dia, mes, ano] = dados.dataPagamento.split('/');
+    const dataIsoAtual = new Date(`${ano}-${mes}-${dia}T12:00:00`).toISOString();
+
+    // 1. Atualiza a transação ATUAL por completo (incluindo descrição e data modificada)
+    batch.update(doc(db, 'transacoes', idAtual), {
+      type: dados.tipo,
+      amount: valorNumerico,
+      descricao: dados.descricao,
+      accountId: dados.contaSelecionada,
+      tags: [dados.tagSelecionada],
+      paymentDate: dataIsoAtual,
+      isForThirdParty: dados.isTerceiro || false,
+      thirdPartyName: dados.nomeTerceiro || '',
+    });
+
+    // 2. Atualiza as transações FUTURAS (Apenas valores, tags e conta)
+    // Mantemos as datas originais e as descrições originais para não apagar a contagem (Ex: 2/10)
+    futurasIds.forEach(idFutura => {
+      batch.update(doc(db, 'transacoes', idFutura), {
+        type: dados.tipo,
+        amount: valorNumerico,
+        accountId: dados.contaSelecionada,
+        tags: [dados.tagSelecionada],
+        isForThirdParty: dados.isTerceiro || false,
+        thirdPartyName: dados.nomeTerceiro || '',
+      });
+    });
+
+    await batch.commit();
+    return { sucesso: true };
+  } catch (error) {
+    return { sucesso: false, erro: error };
+  }
+}
