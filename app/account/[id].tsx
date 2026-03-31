@@ -8,6 +8,7 @@ import { useAccounts } from '../../hooks/useAccounts';
 import { useTheme } from '../../hooks/useTheme';
 import { useTransactions } from '../../hooks/useTransactions';
 import { alternarStatusPagamento, deletarMultiplasTransacoes, deletarTransacaoDoFirebase, pagarFaturaCompleta } from '../../services/firebase/firestore';
+
 const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
 export default function AccountDetailScreen() {
@@ -58,17 +59,34 @@ export default function AccountDetailScreen() {
     return dataPag.getMonth() === mesAtual && dataPag.getFullYear() === anoAtual;
   });
 
-  const transacoesPendentes = transacoesDoMes.filter(t => !t.isPaid);
-  const transacoesPagas = transacoesDoMes.filter(t => t.isPaid);
+  // 👇 A MÁGICA DA ORDENAÇÃO ACONTECE AQUI
+  const ordenarTransacoes = (a: any, b: any) => {
+    // 1º Critério: É parcelado ou fixo? (1 para sim, 0 para não)
+    const aIsRecorrente = a.isInstallment || a.isFixed ? 1 : 0;
+    const bIsRecorrente = b.isInstallment || b.isFixed ? 1 : 0;
+
+    // Se um é recorrente e o outro não, o recorrente sobe!
+    if (aIsRecorrente !== bIsRecorrente) {
+      return bIsRecorrente - aIsRecorrente; 
+    }
+
+    // 2º Critério: Se forem do mesmo tipo, ordena pela data mais recente no topo
+    const dataA = new Date(a.paymentDate || a.date).getTime();
+    const dataB = new Date(b.paymentDate || b.date).getTime();
+    
+    return dataB - dataA;
+  };
+
+  // Aplica a nova ordenação inteligente nas duas listas
+  const transacoesPendentes = transacoesDoMes.filter(t => !t.isPaid).sort(ordenarTransacoes);
+  const transacoesPagas = transacoesDoMes.filter(t => t.isPaid).sort(ordenarTransacoes);
 
   const totalGeral = transacoesDoMes.reduce((acc, t) => acc + t.amount, 0);
   const totalConcluido = transacoesPagas.reduce((acc, t) => acc + t.amount, 0);
   const totalPendente = transacoesPendentes.reduce((acc, t) => acc + t.amount, 0);
 
-  // 👇 AQUI ESTÁ A TRAVA DE SEGURANÇA QUE VOCÊ PEDIU
   const handleToggleCheck = async (transacaoId: string, statusAtual: boolean) => {
     if (statusAtual) {
-      // Se a conta JÁ ESTÁ PAGA, pergunta antes de desmarcar
       Alert.alert(
         'Desmarcar Pagamento',
         isReceita ? 'Tem certeza que deseja desmarcar este recebimento?' : 'Tem certeza que deseja desmarcar este pagamento?',
@@ -78,7 +96,6 @@ export default function AccountDetailScreen() {
         ]
       );
     } else {
-      // Se a conta ESTÁ PENDENTE, paga direto
       await alternarStatusPagamento(transacaoId, statusAtual);
     }
   };
@@ -93,7 +110,6 @@ export default function AccountDetailScreen() {
   };
 
   const handleOpcoesTransacao = (item: any) => {
-    // 👇 Detecta se é uma transação em série
     const isRecorrente = item.isInstallment || item.isFixed;
     const parentId = item.isInstallment ? item.installmentDetails?.parentId : item.fixedDetails?.parentId;
 
@@ -101,7 +117,6 @@ export default function AccountDetailScreen() {
       { text: 'Cancelar', style: 'cancel' },
       { text: 'Editar', onPress: () => router.push({ pathname: '/edit-transaction', params: { 
           id: item.id, tipoOriginal: item.type, valorOriginal: item.amount.toString(), descOriginal: item.descricao, contaOriginal: item.accountId, dataOriginal: item.paymentDate || item.date, tagOriginal: item.tags ? item.tags[0] : '', isTerceiroOriginal: item.isForThirdParty ? 'true' : 'false', nomeTerceiroOriginal: item.thirdPartyName || '',
-          // Enviamos o DNA da transação para a tela de edição
           isRecorrente: isRecorrente ? 'true' : 'false',
           parentId: parentId || ''
         } }) 
@@ -109,13 +124,11 @@ export default function AccountDetailScreen() {
       { text: 'Eliminar', style: 'destructive', onPress: () => {
           
           if (isRecorrente && parentId) {
-            // 👇 Se for em série, o aplicativo pergunta!
             Alert.alert('Excluir Recorrência', 'Esta transação faz parte de uma assinatura/parcelamento. Deseja apagar apenas esta ou todas as parcelas futuras também?', [
               { text: 'Cancelar', style: 'cancel' },
               { text: 'Apenas Esta', onPress: () => deletarTransacaoDoFirebase(item.id) },
               { text: 'Esta e Futuras', style: 'destructive', onPress: () => {
                   const dataReferencia = new Date(item.paymentDate || item.date).getTime();
-                  // Caça o DNA das próximas parcelas
                   const futurasIds = transacoes.filter(t => {
                     const tParentId = t.isInstallment ? t.installmentDetails?.parentId : t.fixedDetails?.parentId;
                     const tData = new Date(t.paymentDate || t.date).getTime();
@@ -272,12 +285,12 @@ export default function AccountDetailScreen() {
 
 const styles = StyleSheet.create({
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' }, container: { flex: 1 },
-  headerGradientSlim: { paddingTop: Platform.OS === 'ios' ? 50 : 40, paddingBottom: 25, paddingHorizontal: 16 },
+  headerGradientSlim: { paddingTop: Platform.OS === 'ios' ? 50 : 40, paddingBottom: 10, paddingHorizontal: 16 },
   headerTopRowCompact: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   backButton: { width: 40, height: 40, justifyContent: 'center', alignItems: 'flex-start' },
   headerTitleSlim: { fontSize: 18, fontWeight: 'bold', color: '#ffffff', flex: 1, textAlign: 'center' },
-  monthSelectorContainerSlim: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.15)', alignSelf: 'center', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5 },
-  miniArrow: { paddingHorizontal: 6 }, monthTextSlim: { fontSize: 13, fontWeight: 'bold', color: '#ffffff', marginHorizontal: 8 },
+  monthSelectorContainerSlim: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.15)', alignSelf: 'center', borderRadius: 4, paddingHorizontal: 10, paddingVertical: 5 },
+  miniArrow: { paddingHorizontal: 6 }, monthTextSlim: { fontSize: 15, fontWeight: 'bold', color: '#ffffff', marginHorizontal: 8 },
   scrollContentSlim: { padding: 16, paddingBottom: 110 },
   summaryCardCompact: { marginTop: -25, borderRadius: 8, padding: 16, marginBottom: 20, elevation: 3, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 6 },
   cardInfoRow: { marginBottom: 16, alignItems: 'center' }, cardLabelMain: { fontSize: 12, marginBottom: 2, fontWeight: '500' }, cardValueMain: { fontSize: 28, fontWeight: 'bold' },
