@@ -4,7 +4,7 @@ import React, { useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Dimensions, LayoutAnimation, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { LineChart, PieChart } from 'react-native-gifted-charts';
 import { useAccounts } from '../../hooks/useAccounts';
-import { useIdentity } from '../../hooks/useIdentity'; // 👈 Identidade importada!
+import { useIdentity } from '../../hooks/useIdentity';
 import { useTheme } from '../../hooks/useTheme';
 import { useTransactions } from '../../hooks/useTransactions';
 
@@ -14,6 +14,9 @@ const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julh
 
 const CORES = ['#00d09c', '#3b82f6', '#f59e0b', '#8b5cf6', '#f43f5e', '#0ea5e9', '#d946ef', '#14b8a6', '#f97316'];
 
+// 👇 SOLUÇÃO AQUI: Variável global que nunca muda!
+const offsetsMeses = [-2, -1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+
 const formatarMoeda = (valor: number) => {
   return valor.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 };
@@ -22,7 +25,7 @@ export default function StatsScreen() {
   const { transacoes, loading: loadingTx } = useTransactions();
   const { contas, loadingContas } = useAccounts();
   const { colors, isDarkMode } = useTheme(); 
-  const { perfil } = useIdentity(); // 👈 Quem está olhando o gráfico?
+  const { perfil } = useIdentity(); 
   const scrollGraficoRef = useRef<ScrollView>(null);
 
   const [dataFiltro, setDataFiltro] = useState(new Date());
@@ -68,7 +71,6 @@ export default function StatsScreen() {
 
       let suaParte = t.amount;
       if (conta.tipo === 'COMUM') {
-        // 👈 INVERSÃO INTELIGENTE AQUI
         const perc = perfil === 'RAY' ? (conta.splitRule?.spouse ?? 50) : (conta.splitRule?.me ?? 50);
         suaParte = t.amount * (perc / 100);
       }
@@ -102,10 +104,9 @@ export default function StatsScreen() {
   const totalGastoString = useMemo(() => totalDespesas.toFixed(2).split('.'), [totalDespesas]);
 
   // --- LÓGICA 2: GRÁFICO DE ÁREA PREMIUM (APENAS SUA PARTE) ---
-  const offsetsMeses = [-2, -1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
-  const hoje = new Date();
-
   const dadosEvolucaoPremiumLine = useMemo(() => {
+    const hoje = new Date(); // 👈 Fica protegido aqui dentro
+    
     return offsetsMeses.map(offset => {
       const dataRef = new Date(hoje.getFullYear(), hoje.getMonth() + offset, 1);
       let totalGastoNoMes = 0;
@@ -118,7 +119,6 @@ export default function StatsScreen() {
           if (conta && t.type === 'DESPESA' && !(conta.tipo === 'TERCEIROS' || t.isForThirdParty) && !(conta.tipo === 'INDIVIDUAL' && conta.dono !== perfil)) {
             let suaParte = t.amount;
             if (conta.tipo === 'COMUM') {
-              // 👈 INVERSÃO INTELIGENTE AQUI TAMBÉM
               const perc = perfil === 'RAY' ? (conta.splitRule?.spouse ?? 50) : (conta.splitRule?.me ?? 50);
               suaParte = t.amount * (perc / 100);
             }
@@ -175,7 +175,6 @@ export default function StatsScreen() {
 
       let suaParte = t.amount;
       if (conta.tipo === 'COMUM') {
-        // 👈 INVERSÃO INTELIGENTE AQUI TAMBÉM
         const perc = perfil === 'RAY' ? (conta.splitRule?.spouse ?? 50) : (conta.splitRule?.me ?? 50);
         suaParte = t.amount * (perc / 100);
       }

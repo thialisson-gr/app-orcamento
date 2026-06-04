@@ -19,6 +19,7 @@ export default function LoginScreen() {
       await signInWithEmailAndPassword(auth, email.trim(), senha);
       router.replace('/(tabs)'); // Login deu certo? Manda pro Dashboard!
     } catch (error: any) {
+      console.log(error); // 👈 Adicionado apenas para o app ler a variável
       Alert.alert('Erro', 'E-mail ou senha incorretos. Verifique e tente novamente.');
     } finally {
       setIsLoading(false);

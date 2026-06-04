@@ -15,7 +15,7 @@ export default function RootLayout() {
 
     if (!user && !inAuthGroup) router.replace('/login');
     else if (user && inAuthGroup) router.replace('/(tabs)');
-  }, [user, loadingAuth, segments]);
+  }, [user, loadingAuth, segments, router]); // 👈 router adicionado no final
 
   if (loadingAuth) return null;
 

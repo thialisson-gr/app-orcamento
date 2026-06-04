@@ -30,8 +30,8 @@ export default function AddTransactionModal() {
   const [qtdParcelas, setQtdParcelas] = useState('2');
   const [isFixo, setIsFixo] = useState(false);
   const [mesesProjecao, setMesesProjecao] = useState('12');
-  const [isTerceiro, setIsTerceiro] = useState(false);
-  const [nomeTerceiro, setNomeTerceiro] = useState('');
+  const [isTerceiro] = useState(false); // 👈 Removido o setIsTerceiro
+  const [nomeTerceiro] = useState(''); // 👈 Removido o setNomeTerceiro
   const [isLoading, setIsLoading] = useState(false);
 
   const jaInicializou = useRef(false);
