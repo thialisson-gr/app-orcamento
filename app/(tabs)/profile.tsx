@@ -6,7 +6,7 @@ import { signOut } from 'firebase/auth';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Modal, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useAccounts } from '../../hooks/useAccounts';
-import { useIdentity } from '../../hooks/useIdentity'; // 👈 Importado o hook de identidade!
+import { useIdentity } from '../../hooks/useIdentity';
 import { useTheme } from '../../hooks/useTheme';
 import { useTransactions } from '../../hooks/useTransactions';
 import { auth } from '../../services/firebase/config';
@@ -18,7 +18,7 @@ export default function ProfileScreen() {
   const { isDarkMode, activeTheme, setTheme, colors } = useTheme(); 
   const { contas } = useAccounts();
   const { transacoes } = useTransactions();
-  const { perfil } = useIdentity(); // 👈 Descobrindo quem está logado
+  const { perfil } = useIdentity(); 
   
   const [modalRegraVisible, setModalRegraVisible] = useState(false);
   const [regraEu, setRegraEu] = useState(50);
@@ -36,7 +36,6 @@ export default function ProfileScreen() {
   const inicial = emailLogado.charAt(0).toUpperCase();
   const nomeExibicao = emailLogado.split('@')[0];
 
-  // 👈 Define o nome do parceiro para o PDF
   const nomeDoParceiro = perfil === 'RAY' ? 'Thialisson' : 'Rayane';
 
   useEffect(() => { buscarRegraPadrao().then(regra => setRegraEu(regra.me)); }, []);
@@ -47,7 +46,10 @@ export default function ProfileScreen() {
   };
 
   const handleLogout = () => {
-    Alert.alert('Sair', 'Deseja sair?', [{ text: 'Cancelar', style: 'cancel' }, { text: 'Sair', style: 'destructive', onPress: async () => await signOut(auth) }]);
+    Alert.alert('Sair', 'Deseja sair da sua conta?', [
+      { text: 'Cancelar', style: 'cancel' }, 
+      { text: 'Sair', style: 'destructive', onPress: async () => await signOut(auth) }
+    ]);
   };
 
   const irMesAnterior = () => setDataFiltro(new Date(anoAtual, mesAtual - 1, 1));
@@ -69,47 +71,41 @@ export default function ProfileScreen() {
   const exportarPDF = async () => {
     setIsExporting(true);
     try {
-      // 1. Filtrar transações
       const despesasMes = transacoes.filter(t => {
         if (t.type !== 'DESPESA') return false; 
-        
         const dataIso = t.paymentDate || t.date; 
         if (!dataIso) return false;
-
         const dataObj = new Date(dataIso);
         return dataObj.getMonth() === mesAtual && dataObj.getFullYear() === anoAtual;
       });
 
-      // 2. Organizar as Tabelas: COMUM -> INDIVIDUAL -> TERCEIROS
       const ordemTipo: Record<string, number> = { 'COMUM': 1, 'INDIVIDUAL': 2, 'TERCEIROS': 3 };
       const contasOrdenadas = contas
         .filter(c => c.tipo !== 'RECEITA') 
         .sort((a, b) => (ordemTipo[a.tipo] || 99) - (ordemTipo[b.tipo] || 99));
 
-      // 3. Montar HTML com o novo CSS para os totais
       let html = `
         <html>
           <head>
             <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no" />
             <style>
               body { font-family: Helvetica, Arial, sans-serif; padding: 20px; color: #1e293b; }
-              .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #3b82f6; padding-bottom: 15px; }
-              h1 { color: #3b82f6; margin: 0; font-size: 24px; }
+              .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid ${colors.accent}; padding-bottom: 15px; }
+              h1 { color: ${colors.accent}; margin: 0; font-size: 24px; }
               p.subtitle { color: #64748b; font-size: 14px; margin-top: 5px; }
               .tabela-container { margin-bottom: 30px; page-break-inside: avoid; }
-              .tabela-titulo { background-color: #f1f5f9; padding: 10px 15px; border-radius: 6px; font-size: 16px; color: #0f172a; margin-bottom: 10px; border-left: 4px solid #3b82f6; }
+              .tabela-titulo { background-color: #f1f5f9; padding: 10px 15px; border-radius: 6px; font-size: 16px; color: #0f172a; margin-bottom: 10px; border-left: 4px solid ${colors.accent}; }
               table { width: 100%; border-collapse: collapse; font-size: 14px; }
               th { background-color: #e2e8f0; color: #334155; padding: 10px; text-align: left; }
               td { padding: 10px; border-bottom: 1px solid #e2e8f0; }
               .valor { font-weight: bold; color: #ef4444; }
               .total-tabela { text-align: right; padding: 10px; font-size: 14px; font-weight: bold; background-color: #f8fafc; border-top: 1px solid #e2e8f0; }
               
-              /* ESTILOS DOS TOTAIS FINAIS */
               .totais-finais-container { margin-top: 40px; page-break-inside: avoid; }
               .titulo-resumo { font-size: 18px; font-weight: bold; color: #0f172a; margin-bottom: 15px; text-align: center; }
               .bloco-simples { display: flex; justify-content: space-between; padding: 15px 20px; border-radius: 8px; color: white; font-size: 16px; font-weight: bold; margin-bottom: 10px; }
               
-              .bloco-comum { padding: 15px 20px; border-radius: 8px; color: white; margin-bottom: 10px; background-color: #3b82f6; }
+              .bloco-comum { padding: 15px 20px; border-radius: 8px; color: white; margin-bottom: 10px; background-color: ${colors.accent}; }
               .linha-total { display: flex; justify-content: space-between; font-size: 16px; font-weight: bold; }
               .linha-divisao { display: flex; justify-content: space-between; font-size: 14px; margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.3); }
               
@@ -127,10 +123,9 @@ export default function ProfileScreen() {
             </div>
       `;
 
-      // Variáveis para somar os totais separados
       let totalComum = 0;
-      let totalMinhaParte = 0; // 👈 Dinâmico
-      let totalParteParceiro = 0; // 👈 Dinâmico
+      let totalMinhaParte = 0; 
+      let totalParteParceiro = 0; 
       let totalIndividual = 0;
       let totalTerceiros = 0;
       let temAlgumaDespesa = false;
@@ -168,18 +163,15 @@ export default function ProfileScreen() {
           `;
         });
 
-        // Adiciona ao totalizador correto baseado no tipo da tabela
         if (conta.tipo === 'COMUM') {
           totalComum += totalConta;
           
-          // Calcula a divisão baseada na regra específica DESTA tabela
           const percThialisson = conta.splitRule?.me ?? 50;
           const percRayane = conta.splitRule?.spouse ?? (100 - percThialisson);
           
           const valorThialisson = totalConta * (percThialisson / 100);
           const valorRayane = totalConta * (percRayane / 100);
           
-          // 👈 A Inversão Matemática Acontece Aqui!
           if (perfil === 'RAY') {
             totalMinhaParte += valorRayane;
             totalParteParceiro += valorThialisson;
@@ -197,7 +189,6 @@ export default function ProfileScreen() {
         html += `</table><div class="total-tabela">Total da Tabela: R$ ${totalConta.toFixed(2).replace('.', ',')}</div></div>`;
       });
 
-      // Renderiza os totais no final do documento com os nomes dinâmicos
       if (!temAlgumaDespesa) {
         html += `<div class="vazio">Nenhuma despesa registrada para o mês de ${mesFormatado}.</div>`;
       } else {
@@ -244,13 +235,14 @@ export default function ProfileScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <View style={[styles.header, { backgroundColor: colors.card, borderBottomColor: isDarkMode ? '#374151' : '#e5e7eb' }]}>
+      <View style={[styles.header, { backgroundColor: colors.card, borderBottomColor: isDarkMode ? '#334155' : '#e5e7eb' }]}>
         <Text style={[styles.headerTitle, { color: colors.text }]}>Perfil</Text>
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        
         {/* === CARTÃO DE USUÁRIO === */}
-        <View style={[styles.userCard, { backgroundColor: colors.card }]}>
+        <View style={[styles.userCard, { backgroundColor: colors.card, borderColor: isDarkMode ? '#334155' : 'transparent', borderWidth: isDarkMode ? 1 : 0 }]}>
           <View style={[styles.avatar, { backgroundColor: colors.accent }]}><Text style={styles.avatarText}>{inicial}</Text></View>
           <View style={styles.userInfo}>
             <Text style={[styles.userName, { color: colors.text }]}>{nomeExibicao}</Text>
@@ -258,55 +250,65 @@ export default function ProfileScreen() {
           </View>
         </View>
 
-        {/* === APARÊNCIA === */}
-        <Text style={[styles.sectionTitle, { color: colors.subText }]}>Aparência Vibrante</Text>
-        <View style={[styles.menuGroup, { backgroundColor: colors.card, padding: 16 }]}>
-          <View style={{ flexDirection: 'row', gap: 12 }}>
-            <TouchableOpacity onPress={() => setTheme('indigo')} style={[styles.themeOption, activeTheme === 'indigo' && { borderColor: '#6366f1', borderWidth: 2 }]}>
-              <View style={[styles.colorCircle, { backgroundColor: '#6366f1' }]} />
-              <Text style={{ fontSize: 11, color: colors.text, marginTop: 6, fontWeight: activeTheme === 'indigo' ? 'bold' : 'normal' }}>Índigo</Text>
+        {/* === APARÊNCIA (OS 4 TEMAS ATUALIZADOS) === */}
+        <Text style={[styles.sectionTitle, { color: colors.subText }]}>Aparência do App</Text>
+        <View style={[styles.menuGroup, { backgroundColor: colors.card, padding: 16, borderColor: isDarkMode ? '#334155' : 'transparent', borderWidth: isDarkMode ? 1 : 0 }]}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 6 }}>
+            
+            {/* Tema Esmeralda */}
+            <TouchableOpacity onPress={() => setTheme('emerald')} style={[styles.themeOption, activeTheme === 'emerald' && { borderColor: '#10B981', borderWidth: 2, backgroundColor: isDarkMode ? 'rgba(16, 185, 129, 0.1)' : '#ecfdf5' }]}>
+              <View style={[styles.colorCircle, { backgroundColor: '#10B981' }]} />
+              <Text style={[styles.themeText, { color: colors.text, fontWeight: activeTheme === 'emerald' ? 'bold' : '600' }]} numberOfLines={1}>Esmeralda</Text>
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => setTheme('pink')} style={[styles.themeOption, activeTheme === 'pink' && { borderColor: '#ec4899', borderWidth: 2 }]}>
-              <View style={[styles.colorCircle, { backgroundColor: '#ec4899' }]} />
-              <Text style={{ fontSize: 11, color: colors.text, marginTop: 6, fontWeight: activeTheme === 'pink' ? 'bold' : 'normal' }}>Pink</Text>
+            
+            {/* Tema Safira (Novo Azul) */}
+            <TouchableOpacity onPress={() => setTheme('sapphire')} style={[styles.themeOption, activeTheme === 'sapphire' && { borderColor: '#2563EB', borderWidth: 2, backgroundColor: isDarkMode ? 'rgba(37, 99, 235, 0.1)' : '#eff6ff' }]}>
+              <View style={[styles.colorCircle, { backgroundColor: '#2563EB' }]} />
+              <Text style={[styles.themeText, { color: colors.text, fontWeight: activeTheme === 'sapphire' ? 'bold' : '600' }]} numberOfLines={1}>Safira</Text>
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => setTheme('dark')} style={[styles.themeOption, activeTheme === 'dark' && { borderColor: '#06b6d4', borderWidth: 2 }]}>
+
+            {/* Tema Grafite (Novo Preto/Minimalista) */}
+            <TouchableOpacity onPress={() => setTheme('graphite')} style={[styles.themeOption, activeTheme === 'graphite' && { borderColor: '#18181B', borderWidth: 2, backgroundColor: isDarkMode ? 'rgba(24, 24, 27, 0.1)' : '#f4f4f5' }]}>
+              <View style={[styles.colorCircle, { backgroundColor: '#18181B' }]} />
+              <Text style={[styles.themeText, { color: colors.text, fontWeight: activeTheme === 'graphite' ? 'bold' : '600' }]} numberOfLines={1}>Grafite</Text>
+            </TouchableOpacity>
+            
+            {/* Tema Cyber Dark */}
+            <TouchableOpacity onPress={() => setTheme('dark')} style={[styles.themeOption, activeTheme === 'dark' && { borderColor: '#06b6d4', borderWidth: 2, backgroundColor: 'rgba(6, 182, 212, 0.1)' }]}>
               <View style={[styles.colorCircle, { backgroundColor: '#1e293b', borderWidth: 2, borderColor: '#06b6d4' }]} />
-              <Text style={{ fontSize: 11, color: colors.text, marginTop: 6, fontWeight: activeTheme === 'dark' ? 'bold' : 'normal' }}>Cyber</Text>
+              <Text style={[styles.themeText, { color: colors.text, fontWeight: activeTheme === 'dark' ? 'bold' : '600' }]} numberOfLines={1}>Cyber</Text>
             </TouchableOpacity>
+
           </View>
         </View>
 
         {/* === CONFIGURAÇÕES === */}
         <Text style={[styles.sectionTitle, { color: colors.subText }]}>Configurações</Text>
-        <View style={[styles.menuGroup, { backgroundColor: colors.card }]}>
+        <View style={[styles.menuGroup, { backgroundColor: colors.card, borderColor: isDarkMode ? '#334155' : 'transparent', borderWidth: isDarkMode ? 1 : 0 }]}>
           <TouchableOpacity style={styles.menuItem} onPress={() => setModalRegraVisible(true)} activeOpacity={0.7}>
             <View style={styles.menuItemLeft}>
-              <View style={[styles.menuIconBox, { backgroundColor: colors.accentLight }]}><Ionicons name="people" size={18} color={colors.accent} /></View>
-              <Text style={[styles.menuItemText, { color: colors.text }]}>Regra Padrão ({regraEu}/{regraRay})</Text>
+              <View style={[styles.menuIconBox, { backgroundColor: colors.accentLight }]}><Ionicons name="people" size={20} color={colors.accent} /></View>
+              <Text style={[styles.menuItemText, { color: colors.text }]}>Regra Padrão do Casal ({regraEu}/{regraRay})</Text>
             </View>
-            <Ionicons name="chevron-forward" size={16} color={isDarkMode ? '#4b5563' : '#d1d5db'} />
+            <Ionicons name="chevron-forward" size={18} color={isDarkMode ? '#4b5563' : '#d1d5db'} />
           </TouchableOpacity>
         </View>
 
         {/* === RELATÓRIOS (PDF) === */}
         <Text style={[styles.sectionTitle, { color: colors.subText }]}>Relatórios</Text>
-        <View style={[styles.menuGroup, { backgroundColor: colors.card, padding: 16 }]}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-            <TouchableOpacity onPress={irMesAnterior} style={{ padding: 8, backgroundColor: isDarkMode ? '#1e293b' : '#f1f5f9', borderRadius: 8 }}>
-              <Ionicons name="chevron-back" size={20} color={colors.accent} />
-            </TouchableOpacity>
-            <Text style={{ fontSize: 16, fontWeight: 'bold', color: colors.text }}>{mesFormatado}</Text>
-            <TouchableOpacity onPress={irProximoMes} style={{ padding: 8, backgroundColor: isDarkMode ? '#1e293b' : '#f1f5f9', borderRadius: 8 }}>
-              <Ionicons name="chevron-forward" size={20} color={colors.accent} />
-            </TouchableOpacity>
+        <View style={[styles.menuGroup, { backgroundColor: colors.card, padding: 20, borderColor: isDarkMode ? '#334155' : 'transparent', borderWidth: isDarkMode ? 1 : 0 }]}>
+          
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: isDarkMode ? '#0f172a' : '#f8fafc', padding: 6, borderRadius: 30, marginBottom: 20, borderWidth: 1, borderColor: isDarkMode ? '#334155' : '#e2e8f0' }}>
+            <TouchableOpacity onPress={irMesAnterior} style={{ padding: 10, backgroundColor: colors.accentLight, borderRadius: 24 }}><Ionicons name="chevron-back" size={16} color={colors.accent} /></TouchableOpacity>
+            <Text style={{ fontSize: 15, fontWeight: 'bold', color: colors.text }}>{mesFormatado}</Text>
+            <TouchableOpacity onPress={irProximoMes} style={{ padding: 10, backgroundColor: colors.accentLight, borderRadius: 24 }}><Ionicons name="chevron-forward" size={16} color={colors.accent} /></TouchableOpacity>
           </View>
 
-          <TouchableOpacity style={[styles.exportBtn, { backgroundColor: colors.accent }, isExporting && { opacity: 0.7 }]} onPress={exportarPDF} disabled={isExporting}>
+          <TouchableOpacity style={[styles.exportBtn, { backgroundColor: colors.accent }, isExporting && { opacity: 0.7 }]} onPress={exportarPDF} disabled={isExporting} activeOpacity={0.8}>
             {isExporting ? <ActivityIndicator color="#fff" /> : (
               <>
-                <Ionicons name="document-text" size={20} color="#fff" />
-                <Text style={{ color: '#fff', fontWeight: 'bold', marginLeft: 8 }}>Exportar Relatório PDF</Text>
+                <Ionicons name="document-text" size={22} color="#fff" />
+                <Text style={{ color: '#fff', fontWeight: 'bold', marginLeft: 10, fontSize: 16 }}>Exportar Relatório PDF</Text>
               </>
             )}
           </TouchableOpacity>
@@ -314,11 +316,11 @@ export default function ProfileScreen() {
 
         {/* === CONTA === */}
         <Text style={[styles.sectionTitle, { color: colors.subText }]}>Conta</Text>
-        <View style={[styles.menuGroup, { backgroundColor: colors.card }]}>
+        <View style={[styles.menuGroup, { backgroundColor: colors.card, borderColor: isDarkMode ? '#334155' : 'transparent', borderWidth: isDarkMode ? 1 : 0 }]}>
           <TouchableOpacity style={styles.menuItem} onPress={handleLogout} activeOpacity={0.7}>
             <View style={styles.menuItemLeft}>
-              <View style={[styles.menuIconBox, { backgroundColor: isDarkMode ? '#7f1d1d' : '#fef2f2' }]}><Ionicons name="log-out" size={18} color="#ef4444" /></View>
-              <Text style={[styles.menuItemText, { color: '#ef4444', fontWeight: 'bold' }]}>Sair</Text>
+              <View style={[styles.menuIconBox, { backgroundColor: isDarkMode ? 'rgba(239, 68, 68, 0.1)' : '#fef2f2' }]}><Ionicons name="log-out" size={20} color="#ef4444" /></View>
+              <Text style={[styles.menuItemText, { color: '#ef4444', fontWeight: 'bold' }]}>Sair do Aplicativo</Text>
             </View>
           </TouchableOpacity>
         </View>
@@ -327,21 +329,34 @@ export default function ProfileScreen() {
       {/* MODAL DE REGRA */}
       <Modal animationType="slide" transparent={true} visible={modalRegraVisible} onRequestClose={() => setModalRegraVisible(false)}>
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { backgroundColor: colors.card }]}>
-            <Text style={[styles.modalTitle, { color: colors.text }]}>Regra Padrão</Text>
-            <View style={{ backgroundColor: isDarkMode ? '#0f172a' : '#f8fafc', padding: 16, borderRadius: 24, marginBottom: 20, borderWidth: isDarkMode ? 1 : 0, borderColor: '#334155' }}>
+          <View style={[styles.modalContent, { backgroundColor: colors.card, borderColor: isDarkMode ? '#334155' : '#e2e8f0' }]}>
+            <Text style={[styles.modalTitle, { color: colors.text }]}>Regra Padrão do Casal</Text>
+            
+            <View style={{ backgroundColor: isDarkMode ? '#0f172a' : '#f8fafc', padding: 20, borderRadius: 20, marginBottom: 24, borderWidth: 1, borderColor: isDarkMode ? '#334155' : '#e2e8f0' }}>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Text style={{ fontSize: 14, fontWeight: '600', color: colors.text }}>Sua Parte</Text>
-                <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: colors.card, borderRadius: 20, borderWidth: 1, borderColor: isDarkMode ? '#475569' : '#e2e8f0' }}>
-                  <TouchableOpacity onPress={() => regraEu > 0 && setRegraEu(regraEu - 1)} style={{ padding: 12 }}><Ionicons name="remove" size={16} color={colors.accent}/></TouchableOpacity>
-                  <Text style={{ width: 36, textAlign: 'center', fontSize: 14, fontWeight: 'bold', color: colors.text }}>{regraEu}%</Text>
-                  <TouchableOpacity onPress={() => regraEu < 100 && setRegraEu(regraEu + 1)} style={{ padding: 12 }}><Ionicons name="add" size={16} color={colors.accent}/></TouchableOpacity>
+                <Text style={{ fontSize: 15, fontWeight: 'bold', color: colors.text }}>Sua Parte (%)</Text>
+                
+                <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: colors.card, borderRadius: 16, padding: 6, borderWidth: 1, borderColor: isDarkMode ? '#475569' : '#e2e8f0' }}>
+                  <TouchableOpacity onPress={() => regraEu > 0 && setRegraEu(regraEu - 1)} style={[styles.pctBtn, { backgroundColor: isDarkMode ? '#1e293b' : '#f1f5f9' }]} activeOpacity={0.7}>
+                    <Ionicons name="remove" size={20} color={colors.accent}/>
+                  </TouchableOpacity>
+                  
+                  <Text style={{ width: 48, textAlign: 'center', fontSize: 18, fontWeight: 'bold', color: colors.accent }}>{regraEu}</Text>
+                  
+                  <TouchableOpacity onPress={() => regraEu < 100 && setRegraEu(regraEu + 1)} style={[styles.pctBtn, { backgroundColor: isDarkMode ? '#1e293b' : '#f1f5f9' }]} activeOpacity={0.7}>
+                    <Ionicons name="add" size={20} color={colors.accent}/>
+                  </TouchableOpacity>
                 </View>
               </View>
             </View>
+            
             <View style={styles.modalFooter}>
-              <TouchableOpacity style={[styles.cancelBtn, { backgroundColor: isDarkMode ? '#334155' : '#f1f5f9' }]} onPress={() => setModalRegraVisible(false)}><Text style={[styles.cancelBtnText, { color: isDarkMode ? '#cbd5e1' : '#64748b' }]}>Cancelar</Text></TouchableOpacity>
-              <TouchableOpacity style={[styles.confirmBtn, { backgroundColor: colors.accent }]} onPress={handleSalvarRegra}><Text style={styles.confirmBtnText}>Salvar</Text></TouchableOpacity>
+              <TouchableOpacity style={[styles.cancelBtn, { backgroundColor: isDarkMode ? '#1e293b' : '#f1f5f9', borderWidth: 1, borderColor: isDarkMode ? '#334155' : '#e2e8f0' }]} onPress={() => setModalRegraVisible(false)}>
+                <Text style={[styles.cancelBtnText, { color: isDarkMode ? '#cbd5e1' : '#64748b' }]}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.confirmBtn, { backgroundColor: colors.accent }]} onPress={handleSalvarRegra}>
+                <Text style={styles.confirmBtnText}>Salvar</Text>
+              </TouchableOpacity>
             </View>
           </View>
         </View>
@@ -353,27 +368,38 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 }, 
   header: { padding: 16, paddingTop: Platform.OS === 'ios' ? 60 : 50, borderBottomWidth: 1, alignItems: 'center' }, 
-  headerTitle: { fontSize: 18, fontWeight: 'bold' }, scrollContent: { padding: 16, paddingBottom: 100 }, 
-  userCard: { flexDirection: 'row', alignItems: 'center', padding: 16, borderRadius: 6, marginBottom: 20, elevation: 1 }, 
-  avatar: { width: 56, height: 56, borderRadius: 28, justifyContent: 'center', alignItems: 'center', marginRight: 12 }, 
-  avatarText: { fontSize: 20, fontWeight: 'bold', color: '#ffffff' }, userInfo: { flex: 1 }, 
-  userName: { fontSize: 18, fontWeight: 'bold', marginBottom: 2, textTransform: 'capitalize' }, 
-  userEmail: { fontSize: 12 }, 
-  sectionTitle: { fontSize: 12, fontWeight: 'bold', marginBottom: 8, marginLeft: 8, textTransform: 'uppercase' }, 
-  menuGroup: { borderRadius: 6, overflow: 'hidden', marginBottom: 20, elevation: 1 }, 
-  menuItem: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16 }, 
+  headerTitle: { fontSize: 18, fontWeight: 'bold' }, 
+  scrollContent: { padding: 20, paddingBottom: 100 }, 
+  
+  userCard: { flexDirection: 'row', alignItems: 'center', padding: 20, borderRadius: 24, marginBottom: 24, elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 6 }, 
+  avatar: { width: 60, height: 60, borderRadius: 30, justifyContent: 'center', alignItems: 'center', marginRight: 16 }, 
+  avatarText: { fontSize: 24, fontWeight: 'bold', color: '#ffffff' }, 
+  userInfo: { flex: 1 }, 
+  userName: { fontSize: 20, fontWeight: 'bold', marginBottom: 4, textTransform: 'capitalize' }, 
+  userEmail: { fontSize: 14 }, 
+  
+  sectionTitle: { fontSize: 13, fontWeight: 'bold', marginBottom: 10, marginLeft: 8, textTransform: 'uppercase', letterSpacing: 0.5 }, 
+  menuGroup: { borderRadius: 24, overflow: 'hidden', marginBottom: 24, elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 6 }, 
+  
+  menuItem: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 20 }, 
   menuItemLeft: { flexDirection: 'row', alignItems: 'center' }, 
-  menuIconBox: { width: 46, height: 46, borderRadius: 25, justifyContent: 'center', alignItems: 'center', marginRight: 12 }, 
-  menuItemText: { fontSize: 15, fontWeight: '500' }, divider: { height: 1, marginLeft: 64 }, 
-  themeOption: { flex: 1, alignItems: 'center', padding: 12, borderRadius: 6, borderWidth: 1, borderColor: 'transparent', backgroundColor: 'rgba(0,0,0,0.03)' }, 
-  colorCircle: { width: 36, height: 36, borderRadius: 18, elevation: 2 },
-  exportBtn: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', padding: 14, borderRadius: 8 },
+  menuIconBox: { width: 44, height: 44, borderRadius: 16, justifyContent: 'center', alignItems: 'center', marginRight: 16 }, 
+  menuItemText: { fontSize: 16, fontWeight: '600' }, 
+  
+  themeOption: { flex: 1, alignItems: 'center', paddingVertical: 14, paddingHorizontal: 4, borderRadius: 16, borderWidth: 1, borderColor: 'transparent', backgroundColor: 'rgba(0,0,0,0.02)' }, 
+  colorCircle: { width: 34, height: 34, borderRadius: 17, elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4 },
+  themeText: { fontSize: 10, marginTop: 8, textAlign: 'center' },
+  
+  exportBtn: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', padding: 16, borderRadius: 20, elevation: 3, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 6 },
+  
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }, 
-  modalContent: { borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24 }, 
-  modalTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 16, textAlign: 'center' }, 
-  modalFooter: { flexDirection: 'row', gap: 12 }, 
-  cancelBtn: { flex: 1, paddingVertical: 14, borderRadius: 6, alignItems: 'center' }, 
-  cancelBtnText: { fontSize: 15, fontWeight: 'bold' }, 
-  confirmBtn: { flex: 1, paddingVertical: 14, borderRadius: 6, alignItems: 'center' }, 
-  confirmBtnText: { color: '#fff', fontSize: 15, fontWeight: 'bold' }
+  modalContent: { borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, paddingBottom: Platform.OS === 'ios' ? 40 : 24, borderWidth: 1, borderBottomWidth: 0 }, 
+  modalTitle: { fontSize: 20, fontWeight: 'bold', marginBottom: 20, textAlign: 'center' }, 
+  pctBtn: { width: 44, height: 44, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
+  
+  modalFooter: { flexDirection: 'row', gap: 16 }, 
+  cancelBtn: { flex: 1, paddingVertical: 16, borderRadius: 16, alignItems: 'center' }, 
+  cancelBtnText: { fontSize: 16, fontWeight: 'bold' }, 
+  confirmBtn: { flex: 1, paddingVertical: 16, borderRadius: 16, alignItems: 'center', elevation: 3, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 6 }, 
+  confirmBtnText: { color: '#fff', fontSize: 16, fontWeight: 'bold' }
 });

@@ -3,14 +3,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import React, { useState } from 'react';
 import { ActivityIndicator, Alert, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { useIdentity } from '../hooks/useIdentity'; // 👈 Cérebro de Identidade importado!
+import { useIdentity } from '../hooks/useIdentity';
 import { useTheme } from '../hooks/useTheme';
 import { atualizarContaNoFirebase } from '../services/firebase/firestore';
 
 export default function EditAccountScreen() {
   const params = useLocalSearchParams();
   const { colors, isDarkMode } = useTheme(); 
-  const { perfil } = useIdentity(); // 👈 Quem está com o celular na mão?
+  const { perfil } = useIdentity(); 
   
   const id = params.id as string;
   const nomeOriginal = params.nomeOriginal as string;
@@ -26,7 +26,6 @@ export default function EditAccountScreen() {
     if (!nome.trim()) return Alert.alert('Atenção', 'O nome não pode ficar vazio.');
     setIsLoading(true);
     
-    // 👇 LÓGICA DE PORCENTAGEM INTELIGENTE
     const valorDigitado = parseInt(porcentagemEu) || 0;
     let percEu = 50;
     let percRay = 50;
@@ -61,21 +60,21 @@ export default function EditAccountScreen() {
     <View style={[styles.container, { backgroundColor: colors.card }]}>
       <Stack.Screen options={{ headerShown: false }} />
 
-      <View style={[styles.compactHeader, { backgroundColor: colors.card, borderBottomColor: isDarkMode ? '#374151' : '#e5e7eb' }]}>
+      <View style={[styles.compactHeader, { backgroundColor: colors.card, borderBottomColor: isDarkMode ? '#334155' : '#e5e7eb' }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton} activeOpacity={0.7}><Ionicons name="arrow-back" size={24} color={colors.text} /></TouchableOpacity>
         <Text style={[styles.headerTitle, { color: colors.text }]}>Editar Tabela</Text>
         <View style={{ width: 40 }} />
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <View style={[styles.infoBox, { backgroundColor: isDarkMode ? '#1e3a8a' : '#eff6ff' }]}>
+        <View style={[styles.infoBox, { backgroundColor: isDarkMode ? 'rgba(59, 130, 246, 0.15)' : '#eff6ff' }]}>
           <Ionicons name="information-circle" size={20} color={colors.accent} />
           <Text style={[styles.infoText, { color: isDarkMode ? '#bfdbfe' : '#1e3a8a' }]}>Se você mudar o nome da tabela, todas as transações antigas serão atualizadas automaticamente para o novo nome.</Text>
         </View>
 
         <View style={styles.formGroup}>
           <Text style={[styles.label, { color: colors.text }]}>Nome da Tabela</Text>
-          <TextInput style={[styles.input, { backgroundColor: isDarkMode ? '#111827' : '#f9fafb', borderColor: isDarkMode ? '#374151' : '#e5e7eb', color: colors.text }]} value={nome} onChangeText={setNome} />
+          <TextInput style={[styles.input, { backgroundColor: isDarkMode ? '#0f172a' : '#f8fafc', borderColor: isDarkMode ? '#334155' : '#e2e8f0', color: colors.text }]} value={nome} onChangeText={setNome} />
         </View>
 
         {fluxo === 'DESPESA' && (
@@ -83,17 +82,17 @@ export default function EditAccountScreen() {
             <View style={styles.formGroup}>
               <Text style={[styles.label, { color: colors.text }]}>Como essa tabela funciona?</Text>
               <View style={styles.row}>
-                <TouchableOpacity style={[styles.chip, { backgroundColor: isDarkMode ? '#374151' : '#f3f4f6', borderColor: isDarkMode ? '#4b5563' : '#e5e7eb' }, tipo === 'COMUM' && { backgroundColor: isDarkMode ? '#1e3a8a' : '#eff6ff', borderColor: colors.accent }]} onPress={() => setTipo('COMUM')}><Text style={[styles.chipText, { color: isDarkMode ? '#d1d5db' : '#6b7280' }, tipo === 'COMUM' && { color: colors.accent, fontWeight: 'bold' }]}>Dividir</Text></TouchableOpacity>
-                <TouchableOpacity style={[styles.chip, { backgroundColor: isDarkMode ? '#374151' : '#f3f4f6', borderColor: isDarkMode ? '#4b5563' : '#e5e7eb' }, tipo === 'INDIVIDUAL' && { backgroundColor: isDarkMode ? '#1e3a8a' : '#eff6ff', borderColor: colors.accent }]} onPress={() => setTipo('INDIVIDUAL')}><Text style={[styles.chipText, { color: isDarkMode ? '#d1d5db' : '#6b7280' }, tipo === 'INDIVIDUAL' && { color: colors.accent, fontWeight: 'bold' }]}>Individual</Text></TouchableOpacity>
-                <TouchableOpacity style={[styles.chip, { backgroundColor: isDarkMode ? '#374151' : '#f3f4f6', borderColor: isDarkMode ? '#4b5563' : '#e5e7eb' }, tipo === 'TERCEIROS' && { backgroundColor: isDarkMode ? '#1e3a8a' : '#eff6ff', borderColor: colors.accent }]} onPress={() => setTipo('TERCEIROS')}><Text style={[styles.chipText, { color: isDarkMode ? '#d1d5db' : '#6b7280' }, tipo === 'TERCEIROS' && { color: colors.accent, fontWeight: 'bold' }]}>Terceiros</Text></TouchableOpacity>
+                <TouchableOpacity style={[styles.chip, { backgroundColor: isDarkMode ? '#1e293b' : '#f8fafc', borderColor: isDarkMode ? '#334155' : '#e2e8f0' }, tipo === 'COMUM' && { backgroundColor: colors.accentLight, borderColor: colors.accent }]} onPress={() => setTipo('COMUM')}><Text style={[styles.chipText, { color: isDarkMode ? '#cbd5e1' : '#64748b' }, tipo === 'COMUM' && { color: colors.accent, fontWeight: 'bold' }]}>Dividir</Text></TouchableOpacity>
+                <TouchableOpacity style={[styles.chip, { backgroundColor: isDarkMode ? '#1e293b' : '#f8fafc', borderColor: isDarkMode ? '#334155' : '#e2e8f0' }, tipo === 'INDIVIDUAL' && { backgroundColor: colors.accentLight, borderColor: colors.accent }]} onPress={() => setTipo('INDIVIDUAL')}><Text style={[styles.chipText, { color: isDarkMode ? '#cbd5e1' : '#64748b' }, tipo === 'INDIVIDUAL' && { color: colors.accent, fontWeight: 'bold' }]}>Individual</Text></TouchableOpacity>
+                <TouchableOpacity style={[styles.chip, { backgroundColor: isDarkMode ? '#1e293b' : '#f8fafc', borderColor: isDarkMode ? '#334155' : '#e2e8f0' }, tipo === 'TERCEIROS' && { backgroundColor: colors.accentLight, borderColor: colors.accent }]} onPress={() => setTipo('TERCEIROS')}><Text style={[styles.chipText, { color: isDarkMode ? '#cbd5e1' : '#64748b' }, tipo === 'TERCEIROS' && { color: colors.accent, fontWeight: 'bold' }]}>Terceiros</Text></TouchableOpacity>
               </View>
             </View>
 
             {tipo === 'COMUM' && (
               <View style={styles.formGroup}>
                 <Text style={[styles.label, { color: colors.text }]}>Qual a sua porcentagem? (%)</Text>
-                <TextInput style={[styles.input, { backgroundColor: isDarkMode ? '#111827' : '#f9fafb', borderColor: isDarkMode ? '#374151' : '#e5e7eb', color: colors.text }]} keyboardType="numeric" value={porcentagemEu} onChangeText={setPorcentagemEu} />
-                <Text style={styles.helperText}>A parte da Ray será calculada automaticamente.</Text>
+                <TextInput style={[styles.input, { backgroundColor: isDarkMode ? '#0f172a' : '#f8fafc', borderColor: isDarkMode ? '#334155' : '#e2e8f0', color: colors.text }]} keyboardType="numeric" value={porcentagemEu} onChangeText={setPorcentagemEu} />
+                <Text style={styles.helperText}>A parte do parceiro será calculada automaticamente.</Text>
               </View>
             )}
 
@@ -101,8 +100,8 @@ export default function EditAccountScreen() {
               <View style={styles.formGroup}>
                 <Text style={[styles.label, { color: colors.text }]}>De quem é essa tabela?</Text>
                 <View style={styles.row}>
-                  <TouchableOpacity style={[styles.chip, { backgroundColor: isDarkMode ? '#374151' : '#f3f4f6', borderColor: isDarkMode ? '#4b5563' : '#e5e7eb' }, dono === 'EU' && { backgroundColor: isDarkMode ? '#1e3a8a' : '#eff6ff', borderColor: colors.accent }]} onPress={() => setDono('EU')}><Text style={[styles.chipText, { color: isDarkMode ? '#d1d5db' : '#6b7280' }, dono === 'EU' && { color: colors.accent, fontWeight: 'bold' }]}>Minha</Text></TouchableOpacity>
-                  <TouchableOpacity style={[styles.chip, { backgroundColor: isDarkMode ? '#374151' : '#f3f4f6', borderColor: isDarkMode ? '#4b5563' : '#e5e7eb' }, dono === 'RAY' && { backgroundColor: isDarkMode ? '#1e3a8a' : '#eff6ff', borderColor: colors.accent }]} onPress={() => setDono('RAY')}><Text style={[styles.chipText, { color: isDarkMode ? '#d1d5db' : '#6b7280' }, dono === 'RAY' && { color: colors.accent, fontWeight: 'bold' }]}>Da Ray</Text></TouchableOpacity>
+                  <TouchableOpacity style={[styles.chip, { backgroundColor: isDarkMode ? '#1e293b' : '#f8fafc', borderColor: isDarkMode ? '#334155' : '#e2e8f0' }, dono === 'EU' && { backgroundColor: colors.accentLight, borderColor: colors.accent }]} onPress={() => setDono('EU')}><Text style={[styles.chipText, { color: isDarkMode ? '#cbd5e1' : '#64748b' }, dono === 'EU' && { color: colors.accent, fontWeight: 'bold' }]}>Minha</Text></TouchableOpacity>
+                  <TouchableOpacity style={[styles.chip, { backgroundColor: isDarkMode ? '#1e293b' : '#f8fafc', borderColor: isDarkMode ? '#334155' : '#e2e8f0' }, dono === 'RAY' && { backgroundColor: colors.accentLight, borderColor: colors.accent }]} onPress={() => setDono('RAY')}><Text style={[styles.chipText, { color: isDarkMode ? '#cbd5e1' : '#64748b' }, dono === 'RAY' && { color: colors.accent, fontWeight: 'bold' }]}>Da Ray</Text></TouchableOpacity>
                 </View>
               </View>
             )}
@@ -110,7 +109,7 @@ export default function EditAccountScreen() {
         )}
       </ScrollView>
 
-      <View style={[styles.footer, { backgroundColor: colors.card, borderTopColor: isDarkMode ? '#374151' : '#f3f4f6' }]}>
+      <View style={[styles.footer, { backgroundColor: colors.card, borderTopColor: isDarkMode ? '#334155' : '#f1f5f9' }]}>
         <TouchableOpacity style={[styles.saveButton, { backgroundColor: colors.accent }, isLoading && {opacity: 0.7}]} onPress={handleSalvar} activeOpacity={0.8} disabled={isLoading}>{isLoading ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveButtonText}>Salvar Alterações</Text>}</TouchableOpacity>
       </View>
     </View>
@@ -118,5 +117,25 @@ export default function EditAccountScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 }, compactHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: Platform.OS === 'ios' ? 50 : 40, paddingBottom: 16, borderBottomWidth: 1 }, backButton: { width: 40, height: 40, justifyContent: 'center', alignItems: 'flex-start' }, headerTitle: { fontSize: 18, fontWeight: 'bold' }, scrollContent: { padding: 20 }, infoBox: { flexDirection: 'row', padding: 16, borderRadius: 6, marginBottom: 24, alignItems: 'center', gap: 10 }, infoText: { flex: 1, fontSize: 13, lineHeight: 18 }, formGroup: { marginBottom: 24 }, label: { fontSize: 14, fontWeight: '600', marginBottom: 8 }, input: { borderWidth: 1, borderRadius: 6, padding: 12, fontSize: 16 }, helperText: { fontSize: 12, color: '#6b7280', marginTop: 8 }, row: { flexDirection: 'row', gap: 12 }, chip: { flex: 1, paddingVertical: 12, borderRadius: 25, alignItems: 'center', borderWidth: 1 }, chipText: { fontSize: 14, fontWeight: '500' }, footer: { padding: 20, borderTopWidth: 1 }, saveButton: { borderRadius: 6, paddingVertical: 18, alignItems: 'center' }, saveButtonText: { color: '#ffffff', fontSize: 16, fontWeight: 'bold' },
+  container: { flex: 1 }, 
+  compactHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: Platform.OS === 'ios' ? 60 : 50, paddingBottom: 16, borderBottomWidth: 1 }, 
+  backButton: { width: 40, height: 40, justifyContent: 'center', alignItems: 'flex-start' }, 
+  headerTitle: { fontSize: 18, fontWeight: 'bold' }, 
+  scrollContent: { padding: 24 }, 
+  
+  infoBox: { flexDirection: 'row', padding: 16, borderRadius: 16, marginBottom: 24, alignItems: 'center', gap: 10 }, 
+  infoText: { flex: 1, fontSize: 13, lineHeight: 20, fontWeight: '500' }, 
+  
+  formGroup: { marginBottom: 24 }, 
+  label: { fontSize: 13, fontWeight: 'bold', marginBottom: 10, textTransform: 'uppercase', letterSpacing: 0.5 }, 
+  input: { borderWidth: 1, borderRadius: 16, padding: 16, fontSize: 16 }, 
+  helperText: { fontSize: 12, color: '#64748b', marginTop: 8, fontStyle: 'italic' }, 
+  
+  row: { flexDirection: 'row', gap: 12 }, 
+  chip: { flex: 1, paddingVertical: 14, borderRadius: 24, alignItems: 'center', borderWidth: 1 }, 
+  chipText: { fontSize: 15, fontWeight: '600' }, 
+  
+  footer: { padding: 24, paddingBottom: Platform.OS === 'ios' ? 40 : 24, borderTopWidth: 1 }, 
+  saveButton: { borderRadius: 20, paddingVertical: 18, alignItems: 'center', elevation: 3, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 6 }, 
+  saveButtonText: { color: '#ffffff', fontSize: 16, fontWeight: 'bold' },
 });

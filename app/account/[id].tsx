@@ -59,25 +59,20 @@ export default function AccountDetailScreen() {
     return dataPag.getMonth() === mesAtual && dataPag.getFullYear() === anoAtual;
   });
 
-  // 👇 A MÁGICA DA ORDENAÇÃO ACONTECE AQUI
   const ordenarTransacoes = (a: any, b: any) => {
-    // 1º Critério: É parcelado ou fixo? (1 para sim, 0 para não)
     const aIsRecorrente = a.isInstallment || a.isFixed ? 1 : 0;
     const bIsRecorrente = b.isInstallment || b.isFixed ? 1 : 0;
 
-    // Se um é recorrente e o outro não, o recorrente sobe!
     if (aIsRecorrente !== bIsRecorrente) {
       return bIsRecorrente - aIsRecorrente; 
     }
 
-    // 2º Critério: Se forem do mesmo tipo, ordena pela data mais recente no topo
     const dataA = new Date(a.paymentDate || a.date).getTime();
     const dataB = new Date(b.paymentDate || b.date).getTime();
     
     return dataB - dataA;
   };
 
-  // Aplica a nova ordenação inteligente nas duas listas
   const transacoesPendentes = transacoesDoMes.filter(t => !t.isPaid).sort(ordenarTransacoes);
   const transacoesPagas = transacoesDoMes.filter(t => t.isPaid).sort(ordenarTransacoes);
 
@@ -113,7 +108,7 @@ export default function AccountDetailScreen() {
     const isRecorrente = item.isInstallment || item.isFixed;
     const parentId = item.isInstallment ? item.installmentDetails?.parentId : item.fixedDetails?.parentId;
 
-    Alert.alert('Opções', `"${item.descricao}"?`, [
+    Alert.alert('Opções da Transação', `O que deseja fazer com "${item.descricao}"?`, [
       { text: 'Cancelar', style: 'cancel' },
       { text: 'Editar', onPress: () => router.push({ pathname: '/edit-transaction', params: { 
           id: item.id, tipoOriginal: item.type, valorOriginal: item.amount.toString(), descOriginal: item.descricao, contaOriginal: item.accountId, dataOriginal: item.paymentDate || item.date, tagOriginal: item.tags ? item.tags[0] : '', isTerceiroOriginal: item.isForThirdParty ? 'true' : 'false', nomeTerceiroOriginal: item.thirdPartyName || '',
@@ -152,104 +147,112 @@ export default function AccountDetailScreen() {
   };
 
   const renderItem = (item: any) => (
-    <TouchableOpacity key={item.id} style={[styles.transactionItem, { backgroundColor: colors.card, borderColor: isDarkMode ? '#334155' : 'transparent', borderWidth: isDarkMode ? 1 : 0 }]} activeOpacity={0.7} onLongPress={() => handleOpcoesTransacao(item)}>
+    <View key={item.id} style={[styles.transactionItem, { borderBottomColor: isDarkMode ? '#334155' : '#f1f5f9' }]}>
+      
+      {/* Botão de Check/Bolinha */}
       <TouchableOpacity style={styles.checkboxArea} onPress={() => handleToggleCheck(item.id, item.isPaid)} activeOpacity={0.6}>
-        <View style={[styles.checkbox, { borderColor: isDarkMode ? '#4b5563' : '#cbd5e1' }, item.isPaid && { backgroundColor: corPrincipal, borderColor: corPrincipal }]}>
-          {item.isPaid && <Ionicons name="checkmark" size={16} color="#fff" />}
+        <View style={[styles.checkbox, { borderColor: isDarkMode ? '#475569' : '#cbd5e1' }, item.isPaid && { backgroundColor: corPrincipal, borderColor: corPrincipal }]}>
+          {item.isPaid && <Ionicons name="checkmark" size={14} color="#fff" />}
         </View>
       </TouchableOpacity>
+      
+      {/* Informações da Transação */}
       <View style={styles.transactionDetails}>
         <Text style={[styles.transactionDesc, { color: colors.text }, item.isPaid && styles.textStrikethrough]} numberOfLines={1}>{item.descricao}</Text>
         <Text style={[styles.transactionMeta, { color: colors.subText }]}>{item.tags ? item.tags[0] : ''} {item.isInstallment && `${item.installmentDetails?.current}/${item.installmentDetails?.total}`}</Text>
       </View>
+      
+      {/* Valores e Data */}
       <View style={styles.transactionRight}>
         <Text style={[styles.transactionAmount, { color: colors.text }, item.isPaid && styles.textStrikethroughMuted]}>R$ {item.amount.toFixed(2)}</Text>
         
         {item.isPaid ? (
           <View style={{ alignItems: 'flex-end', marginTop: 2 }}>
-            <Text style={{ fontSize: 9, color: colors.subText }}>
-              {isReceita ? 'Previsto:' : 'Venc:'} {formatarData(item.paymentDate || item.date)}
-            </Text>
-            <Text style={{ fontSize: 10, color: corPrincipal, fontWeight: '700', marginTop: 1 }}>
-              {item.paidAt ? `${isReceita ? 'Recebido:' : 'Pago:'} ${formatarData(item.paidAt)}` : (isReceita ? 'Recebido' : 'Pago')}
-            </Text>
+            <Text style={{ fontSize: 9, color: colors.subText }}>{isReceita ? 'Previsto:' : 'Venc:'} {formatarData(item.paymentDate || item.date)}</Text>
+            <Text style={{ fontSize: 10, color: corPrincipal, fontWeight: '700', marginTop: 1 }}>{item.paidAt ? `${isReceita ? 'Recebido:' : 'Pago:'} ${formatarData(item.paidAt)}` : (isReceita ? 'Recebido' : 'Pago')}</Text>
           </View>
         ) : (
-          <Text style={{ fontSize: 10, color: colors.subText, marginTop: 2 }}>
-            {isReceita ? 'Previsto:' : 'Vence:'} {formatarData(item.paymentDate || item.date)}
-          </Text>
+          <Text style={{ fontSize: 10, color: colors.subText, marginTop: 2 }}>{isReceita ? 'Previsto:' : 'Vence:'} {formatarData(item.paymentDate || item.date)}</Text>
         )}
-
       </View>
-    </TouchableOpacity>
+
+      {/* 👇 OS TRÊS PONTINHOS VISÍVEIS! */}
+      <TouchableOpacity style={styles.optionsArea} onPress={() => handleOpcoesTransacao(item)}>
+        <Ionicons name="ellipsis-vertical" size={20} color={colors.subText} />
+      </TouchableOpacity>
+
+    </View>
   );
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <Stack.Screen options={{ headerShown: false }} />
 
-      <LinearGradient 
-        colors={gradColors as [string, string]} 
-        start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} 
-        style={styles.headerGradientSlim}
-      >
-        <View style={styles.headerTopRowCompact}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton} activeOpacity={0.7}>
-            <Ionicons name="arrow-back" size={24} color="#ffffff" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitleSlim} numberOfLines={1}>{nomeConta}</Text>
+      {/* CABEÇALHO COLORIDO */}
+      <LinearGradient colors={gradColors as [string, string]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.headerGradient}>
+        <View style={styles.headerTopRow}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backButton} activeOpacity={0.7}><Ionicons name="arrow-back" size={24} color="#ffffff" /></TouchableOpacity>
+          <Text style={styles.headerTitle} numberOfLines={1}>{nomeConta}</Text>
           <View style={{ width: 40 }} />
         </View>
 
-        <View style={styles.monthSelectorContainerSlim}>
+        {/* SELETOR DE MÊS (PÍLULA CLARA) */}
+        <View style={styles.monthSelectorContainer}>
           <TouchableOpacity onPress={irMesAnterior} style={styles.miniArrow}><Ionicons name="chevron-back" size={16} color="#ffffff" /></TouchableOpacity>
-          <Text style={styles.monthTextSlim}>{mesFormatado}</Text>
+          <Text style={styles.monthText}>{mesFormatado}</Text>
           <TouchableOpacity onPress={irProximoMes} style={styles.miniArrow}><Ionicons name="chevron-forward" size={16} color="#ffffff" /></TouchableOpacity>
         </View>
       </LinearGradient>
 
-      <ScrollView contentContainerStyle={styles.scrollContentSlim} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         
-        <View style={[styles.summaryCardCompact, { backgroundColor: colors.card, borderColor: isDarkMode ? '#334155' : 'transparent', borderWidth: isDarkMode ? 1 : 0 }]}>
+        {/* CARTÃO DE RESUMO DA FATURA (SQUIRCLE) */}
+        <View style={[styles.summaryCard, { backgroundColor: colors.card, borderColor: isDarkMode ? '#334155' : 'transparent', borderWidth: isDarkMode ? 1 : 0 }]}>
           <View style={styles.cardInfoRow}>
             <View style={{flexDirection: 'row', alignItems: 'center', gap: 6}}>
-               <Ionicons name={isReceita ? "wallet-outline" : "receipt-outline"} size={14} color={colors.subText}/>
-               <Text style={[styles.cardLabelMain, { color: colors.subText }]}>{isReceita ? 'Total Esperado' : 'Total Fatura'}</Text>
+               <Ionicons name={isReceita ? "wallet-outline" : "receipt-outline"} size={16} color={colors.subText}/>
+               <Text style={[styles.cardLabelMain, { color: colors.subText }]}>{isReceita ? 'Total Esperado' : 'Total da Fatura'}</Text>
             </View>
             <Text style={[styles.cardValueMain, { color: colors.text }]}>R$ {totalGeral.toFixed(2)}</Text>
           </View>
 
           <View style={styles.cardStatsGrid}>
             <View style={styles.statItem}>
-              <View style={{flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 2}}>
-                <Ionicons name="checkmark-circle" size={14} color="#10b981" />
+              <View style={{flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 4}}>
+                <Ionicons name="checkmark-circle" size={14} color={corPrincipal} />
                 <Text style={[styles.statItemLabel, {color: colors.subText, marginBottom: 0}]}>{isReceita ? 'Recebido' : 'Pago'}</Text>
               </View>
-              <Text style={[styles.statItemValue, {color: '#10b981'}]}>R$ {totalConcluido.toFixed(2)}</Text>
+              <Text style={[styles.statItemValue, {color: corPrincipal}]}>R$ {totalConcluido.toFixed(2)}</Text>
             </View>
+            
+            <View style={{ width: 1, backgroundColor: isDarkMode ? '#334155' : '#f1f5f9', marginHorizontal: 12 }} />
+            
             <View style={[styles.statItem, {alignItems: 'flex-end'}]}>
-              <View style={{flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 2, justifyContent: 'flex-end'}}>
+              <View style={{flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 4, justifyContent: 'flex-end'}}>
                 <Ionicons name="alert-circle" size={14} color={totalPendente > 0 ? "#ef4444" : colors.subText} />
                 <Text style={[styles.statItemLabel, {color: colors.subText, marginBottom: 0}]}>Pendente</Text>
               </View>
-              <Text style={[styles.statItemValue, totalPendente > 0 ? { color: '#ef4444' } : { color: colors.subText }]}>
-                R$ {totalPendente.toFixed(2)}
-              </Text>
+              <Text style={[styles.statItemValue, totalPendente > 0 ? { color: '#ef4444' } : { color: colors.subText }]}>R$ {totalPendente.toFixed(2)}</Text>
             </View>
           </View>
         </View>
 
+        {/* LISTAS DE TRANSAÇÕES */}
         {transacoesPendentes.length > 0 && (
           <View style={styles.listSection}>
             <Text style={[styles.sectionTitle, { color: colors.subText }]}>Pendentes</Text>
-            {transacoesPendentes.map(renderItem)}
+            <View style={[styles.listContainer, { backgroundColor: colors.card, borderColor: isDarkMode ? '#334155' : 'transparent', borderWidth: isDarkMode ? 1 : 0 }]}>
+              {transacoesPendentes.map(renderItem)}
+            </View>
           </View>
         )}
 
         {transacoesPagas.length > 0 && (
           <View style={styles.listSection}>
             <Text style={[styles.sectionTitle, { color: colors.subText }]}>{isReceita ? 'Recebidos' : 'Pagos'}</Text>
-            {transacoesPagas.map(renderItem)}
+            <View style={[styles.listContainer, { backgroundColor: colors.card, borderColor: isDarkMode ? '#334155' : 'transparent', borderWidth: isDarkMode ? 1 : 0 }]}>
+              {transacoesPagas.map(renderItem)}
+            </View>
           </View>
         )}
 
@@ -258,24 +261,26 @@ export default function AccountDetailScreen() {
             <View style={[styles.emptyIconCircle, { backgroundColor: isDarkMode ? '#1e293b' : '#f1f5f9' }]}>
               <Ionicons name={isReceita ? "wallet-outline" : "receipt-outline"} size={36} color={colors.subText} />
             </View>
-            <Text style={[styles.emptyText, { color: colors.subText }]}>Nenhuma movimentação.</Text>
+            <Text style={[styles.emptyText, { color: colors.subText }]}>Nenhuma movimentação neste mês.</Text>
           </View>
         )}
       </ScrollView>
 
+      {/* BOTÃO FAB FLUTUANTE (SQUIRCLE) */}
       <TouchableOpacity 
-        style={[styles.fabCompact, { backgroundColor: corPrincipal, bottom: transacoesPendentes.length > 0 ? 90 : 20 }]} 
+        style={[styles.fabCompact, { backgroundColor: corPrincipal, bottom: transacoesPendentes.length > 0 ? 100 : 30 }]} 
         activeOpacity={0.8} 
         onPress={() => router.push({ pathname: '/add-transaction', params: { contaPreSelecionada: nomeConta } })}
       >
-        <Ionicons name="add" size={26} color="#fff" />
+        <Ionicons name="add" size={28} color="#fff" />
       </TouchableOpacity>
 
+      {/* BOTÃO PAGAR TUDO NO RODAPÉ */}
       {transacoesPendentes.length > 0 && (
-        <View style={[styles.footerSlim, { backgroundColor: isDarkMode ? 'rgba(15,23,42,0.95)' : 'rgba(248,250,252,0.95)' }]}>
+        <View style={[styles.footerSlim, { backgroundColor: isDarkMode ? 'rgba(18,18,20,0.95)' : 'rgba(244,244,245,0.95)' }]}>
           <TouchableOpacity style={[styles.payAllButtonSlim, { backgroundColor: corPrincipal }]} onPress={handleConcluirTudo} activeOpacity={0.8}>
             <Ionicons name="checkmark-done" size={20} color="#fff" />
-            <Text style={styles.payAllTextSlim}>{isReceita ? 'Receber Tudo' : 'Pagar Fatura'}</Text>
+            <Text style={styles.payAllTextSlim}>{isReceita ? 'Receber Tudo' : 'Pagar Fatura Completa'}</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -284,26 +289,55 @@ export default function AccountDetailScreen() {
 }
 
 const styles = StyleSheet.create({
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center' }, container: { flex: 1 },
-  headerGradientSlim: { paddingTop: Platform.OS === 'ios' ? 50 : 40, paddingBottom: 10, paddingHorizontal: 16 },
-  headerTopRowCompact: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center' }, 
+  container: { flex: 1 },
+  
+  headerGradient: { paddingTop: Platform.OS === 'ios' ? 60 : 40, paddingBottom: 24, paddingHorizontal: 20 },
+  headerTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
   backButton: { width: 40, height: 40, justifyContent: 'center', alignItems: 'flex-start' },
-  headerTitleSlim: { fontSize: 18, fontWeight: 'bold', color: '#ffffff', flex: 1, textAlign: 'center' },
-  monthSelectorContainerSlim: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.15)', alignSelf: 'center', borderRadius: 4, paddingHorizontal: 10, paddingVertical: 5 },
-  miniArrow: { paddingHorizontal: 6 }, monthTextSlim: { fontSize: 15, fontWeight: 'bold', color: '#ffffff', marginHorizontal: 8 },
-  scrollContentSlim: { padding: 16, paddingBottom: 110 },
-  summaryCardCompact: { marginTop: -25, borderRadius: 8, padding: 16, marginBottom: 20, elevation: 3, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 6 },
-  cardInfoRow: { marginBottom: 16, alignItems: 'center' }, cardLabelMain: { fontSize: 12, marginBottom: 2, fontWeight: '500' }, cardValueMain: { fontSize: 28, fontWeight: 'bold' },
-  cardStatsGrid: { flexDirection: 'row', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: 'rgba(0,0,0,0.05)', paddingTop: 12 },
-  statItem: { flex: 1 }, statItemLabel: { fontSize: 11, marginBottom: 2, fontWeight: '500' }, statItemValue: { fontSize: 16, fontWeight: 'bold' },
-  listSection: { marginBottom: 20 }, sectionTitle: { fontSize: 12, fontWeight: 'bold', marginBottom: 10, marginLeft: 4, textTransform: 'uppercase', letterSpacing: 0.5 },
-  transactionItem: { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 6, marginBottom: 8 },
-  checkboxArea: { width: 36, height: 36, justifyContent: 'center', alignItems: 'flex-start' }, checkbox: { width: 22, height: 22, borderRadius: 11, borderWidth: 2, justifyContent: 'center', alignItems: 'center' },
-  transactionDetails: { flex: 1, paddingRight: 8 }, transactionDesc: { fontSize: 14, fontWeight: '600', marginBottom: 2 }, transactionMeta: { fontSize: 11 },
-  transactionRight: { alignItems: 'flex-end' }, transactionAmount: { fontSize: 14, fontWeight: 'bold', marginBottom: 2 }, 
-  textStrikethrough: { textDecorationLine: 'line-through', color: '#94a3b8' }, textStrikethroughMuted: { color: '#94a3b8' },
-  emptyState: { alignItems: 'center', justifyContent: 'center', paddingVertical: 40 }, emptyIconCircle: { width: 70, height: 70, borderRadius: 35, justifyContent: 'center', alignItems: 'center', marginBottom: 12 }, emptyText: { fontSize: 14, fontWeight: '500' },
-  footerSlim: { position: 'absolute', bottom: 0, left: 0, right: 0, padding: 16, paddingBottom: Platform.OS === 'ios' ? 24 : 16 },
-  payAllButtonSlim: { flexDirection: 'row', borderRadius: 6, paddingVertical: 14, justifyContent: 'center', alignItems: 'center', gap: 8, elevation: 2 }, payAllTextSlim: { color: '#ffffff', fontSize: 15, fontWeight: 'bold' },
-  fabCompact: { position: 'absolute', right: 16, width: 52, height: 52, borderRadius: 26, justifyContent: 'center', alignItems: 'center', elevation: 5, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.2, shadowRadius: 5, zIndex: 10 },
+  headerTitle: { fontSize: 20, fontWeight: 'bold', color: '#ffffff', flex: 1, textAlign: 'center' },
+  
+  monthSelectorContainer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.2)', alignSelf: 'center', borderRadius: 30, paddingHorizontal: 16, paddingVertical: 8 },
+  miniArrow: { paddingHorizontal: 8 }, 
+  monthText: { fontSize: 14, fontWeight: 'bold', color: '#ffffff', marginHorizontal: 12 },
+  
+  scrollContent: { padding: 20, paddingBottom: 120 },
+  
+  summaryCard: { marginTop: -40, borderRadius: 24, padding: 24, marginBottom: 24, elevation: 4, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 10 },
+  cardInfoRow: { marginBottom: 20, alignItems: 'center' }, 
+  cardLabelMain: { fontSize: 13, marginBottom: 6, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 }, 
+  cardValueMain: { fontSize: 34, fontWeight: '800' },
+  cardStatsGrid: { flexDirection: 'row', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: 'rgba(0,0,0,0.05)', paddingTop: 16 },
+  statItem: { flex: 1 }, 
+  statItemLabel: { fontSize: 12, marginBottom: 4, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 }, 
+  statItemValue: { fontSize: 18, fontWeight: 'bold' },
+  
+  listSection: { marginBottom: 24 }, 
+  sectionTitle: { fontSize: 13, fontWeight: 'bold', marginBottom: 12, marginLeft: 8, textTransform: 'uppercase', letterSpacing: 0.5 },
+  listContainer: { borderRadius: 20, paddingHorizontal: 16, overflow: 'hidden', elevation: 1, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 6 },
+  
+  transactionItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 16, borderBottomWidth: 1 },
+  checkboxArea: { width: 36, height: 36, justifyContent: 'center', alignItems: 'flex-start' }, 
+  checkbox: { width: 20, height: 20, borderRadius: 10, borderWidth: 1.5, justifyContent: 'center', alignItems: 'center' },
+  transactionDetails: { flex: 1, paddingRight: 8 }, 
+  transactionDesc: { fontSize: 15, fontWeight: '600', marginBottom: 2 }, 
+  transactionMeta: { fontSize: 12 },
+  transactionRight: { alignItems: 'flex-end', justifyContent: 'center' }, 
+  transactionAmount: { fontSize: 15, fontWeight: 'bold', marginBottom: 2 }, 
+  
+  // OS 3 PONTINHOS
+  optionsArea: { paddingLeft: 12, paddingVertical: 10, justifyContent: 'center', alignItems: 'flex-end' },
+  
+  textStrikethrough: { textDecorationLine: 'line-through', color: '#94a3b8' }, 
+  textStrikethroughMuted: { color: '#94a3b8' },
+  
+  emptyState: { alignItems: 'center', justifyContent: 'center', paddingVertical: 60 }, 
+  emptyIconCircle: { width: 80, height: 80, borderRadius: 40, justifyContent: 'center', alignItems: 'center', marginBottom: 16 }, 
+  emptyText: { fontSize: 15, fontWeight: '500' },
+  
+  footerSlim: { position: 'absolute', bottom: 0, left: 0, right: 0, padding: 20, paddingBottom: Platform.OS === 'ios' ? 30 : 20 },
+  payAllButtonSlim: { flexDirection: 'row', borderRadius: 20, paddingVertical: 18, justifyContent: 'center', alignItems: 'center', gap: 10, elevation: 3, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 6 }, 
+  payAllTextSlim: { color: '#ffffff', fontSize: 16, fontWeight: 'bold' },
+  
+  fabCompact: { position: 'absolute', right: 24, width: 60, height: 60, borderRadius: 30, justifyContent: 'center', alignItems: 'center', elevation: 6, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, zIndex: 10 },
 });

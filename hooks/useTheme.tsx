@@ -1,59 +1,86 @@
 // hooks/useTheme.tsx
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { StatusBar } from 'react-native';
 
-export type ThemeName = 'indigo' | 'pink' | 'dark';
-
-export const Colors = {
-  indigo: {
-    background: '#e4f1ff', card: '#ffffff', text: '#0f172a', subText: '#64748b', accent: '#6366f1', accentLight: '#e0e7ff',
-    gradient: ['#818cf8', '#4f46e5'] // 👈 Degradê Índigo
+// 👇 AS 4 PALETAS DE CORES DEFINIDAS COM CONTRASTE MÁXIMO
+const THEMES: Record<string, any> = {
+  emerald: {
+    background: '#F4F4F5',
+    card: '#FFFFFF',
+    text: '#064E3B', 
+    subText: '#475569',
+    accent: '#10B981', 
+    accentLight: '#D1FAE5',
+    gradient: ['#34D399', '#059669'],
   },
-  pink: {
-    background: '#fdf2f8', card: '#ffffff', text: '#831843', subText: '#9d174d', accent: '#ec4899', accentLight: '#fce7f3',
-    gradient: ['#f472b6', '#db2777'] // 👈 Degradê Pink
+  sapphire: { // 👈 NOVO TEMA AZUL PREMIUM
+    background: '#F4F4F5',
+    card: '#FFFFFF',
+    text: '#0F172A', 
+    subText: '#475569',
+    accent: '#2563EB', // Azul Royal
+    accentLight: '#DBEAFE',
+    gradient: ['#60A5FA', '#1D4ED8'],
+  },
+  graphite: { // 👈 NOVO TEMA PRETO/MINIMALISTA
+    background: '#F4F4F5',
+    card: '#FFFFFF',
+    text: '#09090B', 
+    subText: '#52525B',
+    accent: '#18181B', // Quase preto
+    accentLight: '#E4E4E7',
+    gradient: ['#71717A', '#27272A'],
   },
   dark: {
-    background: '#0f172a', card: '#1e293b', text: '#f8fafc', subText: '#94a3b8', accent: '#06b6d4', accentLight: '#164e63',
-    gradient: ['#22d3ee', '#0891b2'] // 👈 Degradê Cyber
+    background: '#0f172a',
+    card: '#1e293b',
+    text: '#f8fafc',
+    subText: '#94a3b8',
+    accent: '#06b6d4', 
+    accentLight: 'rgba(6, 182, 212, 0.2)',
+    gradient: ['#22d3ee', '#0891b2'],
   }
 };
 
 type ThemeContextType = {
-  activeTheme: ThemeName;
-  isDarkMode: boolean; 
-  setTheme: (theme: ThemeName) => void;
-  colors: typeof Colors.indigo;
+  activeTheme: string;
+  isDarkMode: boolean;
+  colors: any;
+  setTheme: (theme: string) => void;
 };
 
-const ThemeContext = createContext<ThemeContextType>({
-  activeTheme: 'indigo', isDarkMode: false, setTheme: () => {}, colors: Colors.indigo,
-});
+const ThemeContext = createContext<ThemeContextType>({} as ThemeContextType);
 
-export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [activeTheme, setActiveThemeState] = useState<ThemeName>('indigo');
+export function ThemeProvider({ children }: { children: React.ReactNode }) {
+  const [activeTheme, setActiveThemeState] = useState('emerald'); 
+  const [colors, setColors] = useState(THEMES.emerald);
 
   useEffect(() => {
-    AsyncStorage.getItem('orcamento:theme').then(theme => {
-      if (theme === 'dark' || theme === 'pink' || theme === 'indigo') setActiveThemeState(theme as ThemeName);
+    AsyncStorage.getItem('@app_theme').then((savedTheme) => {
+      if (savedTheme && THEMES[savedTheme]) {
+        setActiveThemeState(savedTheme);
+        setColors(THEMES[savedTheme]);
+      }
     });
   }, []);
 
-  const setTheme = async (newTheme: ThemeName) => {
-    setActiveThemeState(newTheme);
-    await AsyncStorage.setItem('orcamento:theme', newTheme);
+  const setTheme = async (themeName: string) => {
+    if (THEMES[themeName]) {
+      setActiveThemeState(themeName);
+      setColors(THEMES[themeName]);
+      await AsyncStorage.setItem('@app_theme', themeName);
+    }
   };
 
-  const colors = Colors[activeTheme];
   const isDarkMode = activeTheme === 'dark';
 
   return (
-    <ThemeContext.Provider value={{ activeTheme, isDarkMode, setTheme, colors }}>
-      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} backgroundColor={colors.background} />
+    <ThemeContext.Provider value={{ activeTheme, isDarkMode, colors, setTheme }}>
       {children}
     </ThemeContext.Provider>
   );
-};
+}
 
-export const useTheme = () => useContext(ThemeContext);
+export function useTheme() {
+  return useContext(ThemeContext);
+}
