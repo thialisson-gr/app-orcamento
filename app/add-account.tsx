@@ -3,6 +3,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { Alert, Keyboard, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
+import { AccountSplitSlider } from '../components/AccountSplitSlider';
+import { TransactionTypeSelector } from '../components/TransactionTypeSelector';
 import { useIdentity } from '../hooks/useIdentity';
 import { useTheme } from '../hooks/useTheme';
 import { buscarRegraPadrao, salvarContaNoFirebase } from '../services/firebase/firestore';
@@ -71,14 +73,12 @@ export default function AddAccountScreen() {
       <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           
-          <View style={[styles.typeSelector, { backgroundColor: isDarkMode ? '#0f172a' : '#f1f5f9', borderWidth: isDarkMode ? 1 : 0, borderColor: '#334155' }]}>
-            <TouchableOpacity style={[styles.typeBtn, fluxo === 'DESPESA' && styles.typeBtnDespesa]} onPress={() => setFluxo('DESPESA')}>
-              <Text style={[styles.typeText, { color: isDarkMode ? '#94a3b8' : '#64748b' }, fluxo === 'DESPESA' && styles.typeTextActive]}>Para Despesas</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={[styles.typeBtn, fluxo === 'RECEITA' && styles.typeBtnReceita]} onPress={() => setFluxo('RECEITA')}>
-              <Text style={[styles.typeText, { color: isDarkMode ? '#94a3b8' : '#64748b' }, fluxo === 'RECEITA' && styles.typeTextActive]}>Para Receitas</Text>
-            </TouchableOpacity>
-          </View>
+          <TransactionTypeSelector 
+            tipo={fluxo} 
+            onChange={setFluxo} 
+            labelDespesa="Para Despesas" 
+            labelReceita="Para Receitas" 
+          />
 
           <View style={styles.formGroup}>
             <Text style={[styles.label, { color: colors.text }]}>Nome da Tabela</Text>
@@ -103,33 +103,12 @@ export default function AddAccountScreen() {
               </View>
 
               {tipo === 'COMUM' && (
-                <View style={[styles.formGroup, { backgroundColor: isDarkMode ? '#0f172a' : '#f8fafc', padding: 20, borderRadius: 20, borderWidth: 1, borderColor: isDarkMode ? '#334155' : '#e2e8f0' }]}>
-                  <Text style={[styles.label, { color: colors.text, marginBottom: 16 }]}>Sua Parte na Tabela</Text>
-                  
-                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: colors.card, borderRadius: 16, padding: 8, borderWidth: 1, borderColor: isDarkMode ? '#334155' : '#e2e8f0' }}>
-                    <TouchableOpacity onPress={diminuirPorcentagem} style={[styles.pctBtn, { backgroundColor: isDarkMode ? '#1e293b' : '#f1f5f9' }]} activeOpacity={0.7}>
-                      <Ionicons name="remove" size={24} color={colors.text} />
-                    </TouchableOpacity>
-                    
-                    <Text style={{ fontSize: 28, fontWeight: 'bold', color: colors.accent }}>{porcentagemEu}%</Text>
-                    
-                    <TouchableOpacity onPress={aumentarPorcentagem} style={[styles.pctBtn, { backgroundColor: isDarkMode ? '#1e293b' : '#f1f5f9' }]} activeOpacity={0.7}>
-                      <Ionicons name="add" size={24} color={colors.text} />
-                    </TouchableOpacity>
-                  </View>
-
-                  <View style={{ height: 10, borderRadius: 5, flexDirection: 'row', overflow: 'hidden', marginTop: 24, backgroundColor: isDarkMode ? '#1e293b' : '#e2e8f0' }}>
-                    <View style={{ width: `${porcentagemEu}%`, backgroundColor: colors.accent }} />
-                  </View>
-
-                  <View style={{ flexDirection: 'row', marginTop: 12, justifyContent: 'space-between' }}>
-                    <Text style={{ fontSize: 13, color: colors.accent, fontWeight: 'bold' }}>Você: R$ {porcentagemEu}</Text>
-                    <Text style={{ fontSize: 13, color: colors.subText, fontWeight: '600' }}>{nomeDoParceiro}: R$ {100 - porcentagemEu}</Text>
-                  </View>
-                  <Text style={{ fontSize: 12, color: colors.subText, marginTop: 16, textAlign: 'center', fontStyle: 'italic' }}>
-                    A cada R$ 100 gastos nesta tabela, você assumirá R$ {porcentagemEu} e {nomeDoParceiro} assumirá R$ {100 - porcentagemEu}.
-                  </Text>
-                </View>
+                <AccountSplitSlider 
+                  porcentagemEu={porcentagemEu}
+                  onAumentar={aumentarPorcentagem}
+                  onDiminuir={diminuirPorcentagem}
+                  nomeParceiro={nomeDoParceiro}
+                />
               )}
 
               {tipo === 'INDIVIDUAL' && (
@@ -157,14 +136,7 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, paddingTop: Platform.OS === 'ios' ? 60 : 50, borderBottomWidth: 1 }, 
   closeBtn: { width: 40, height: 40, justifyContent: 'center' }, 
   headerTitle: { fontSize: 18, fontWeight: 'bold' }, 
-  scrollContent: { padding: 24 }, 
-  
-  typeSelector: { flexDirection: 'row', borderRadius: 30, padding: 6, marginBottom: 30 }, 
-  typeBtn: { flex: 1, paddingVertical: 12, borderRadius: 26, alignItems: 'center' }, 
-  typeBtnDespesa: { backgroundColor: '#ef4444', elevation: 2, shadowColor: '#ef4444', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 4 }, 
-  typeBtnReceita: { backgroundColor: '#10b981', elevation: 2, shadowColor: '#10b981', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 4 }, 
-  typeText: { fontSize: 15, fontWeight: 'bold' }, 
-  typeTextActive: { color: '#ffffff' }, 
+  scrollContent: { padding: 24 },  
   
   formGroup: { marginBottom: 24 }, 
   label: { fontSize: 13, fontWeight: 'bold', marginBottom: 10, textTransform: 'uppercase', letterSpacing: 0.5 }, 
@@ -173,8 +145,6 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', gap: 12 }, 
   chip: { flex: 1, paddingVertical: 14, borderRadius: 24, alignItems: 'center', borderWidth: 1 }, 
   chipText: { fontSize: 15, fontWeight: '600' }, 
-  
-  pctBtn: { width: 56, height: 56, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
   
   footer: { padding: 24, paddingBottom: Platform.OS === 'ios' ? 40 : 24, borderTopWidth: 1 }, 
   saveButton: { borderRadius: 20, paddingVertical: 18, alignItems: 'center', elevation: 3, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 6 }, 

@@ -3,14 +3,14 @@ import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
-import { Alert, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
+import { AccountPickerModal } from '../components/AccountPickerModal';
+import { CategorySelector, TAGS_DESPESA, TAGS_RECEITA } from '../components/CategorySelector';
+import { TransactionTypeSelector } from '../components/TransactionTypeSelector';
 import { useAccounts } from '../hooks/useAccounts';
 import { useTheme } from '../hooks/useTheme';
 import { salvarTransacaoNoFirebase } from '../services/firebase/firestore';
-
-const TAGS_DESPESA = ['🛒 Super', '🍔 Lazer', '🏠 Casa', '🚗 Transp.', '🏥 Saúde', '🛍️ Compras', '⚡ Contas', '🏷️ Outros'];
-const TAGS_RECEITA = ['💰 Salário', '💸 Pix', '🏦 Transf.', '📈 Rends.', '🎁 Outros'];
 
 export default function AddTransactionModal() {
   const params = useLocalSearchParams();
@@ -105,14 +105,14 @@ export default function AddTransactionModal() {
       <KeyboardAwareScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" enableOnAndroid={true} extraScrollHeight={Platform.OS === 'ios' ? 20 : 0}>
         
         {/* TIPO: DESPESA / RECEITA */}
-        <View style={[styles.typeSelector, { backgroundColor: isDarkMode ? '#0f172a' : '#f1f5f9', borderWidth: isDarkMode ? 1 : 0, borderColor: '#334155' }]}>
-          <TouchableOpacity style={[styles.typeBtn, tipo === 'DESPESA' && styles.typeBtnDespesa]} onPress={() => {setTipo('DESPESA'); setTagSelecionada(TAGS_DESPESA[0]); setModoRepeticao('UNICA');}}>
-            <Text style={[styles.typeText, { color: isDarkMode ? '#94a3b8' : '#64748b' }, tipo === 'DESPESA' && styles.typeTextActive]}>Despesa</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={[styles.typeBtn, tipo === 'RECEITA' && styles.typeBtnReceita]} onPress={() => {setTipo('RECEITA'); setTagSelecionada(TAGS_RECEITA[0]); setModoRepeticao('UNICA');}}>
-            <Text style={[styles.typeText, { color: isDarkMode ? '#94a3b8' : '#64748b' }, tipo === 'RECEITA' && styles.typeTextActive]}>Receita</Text>
-          </TouchableOpacity>
-        </View>
+        <TransactionTypeSelector 
+          tipo={tipo} 
+          onChange={(novoTipo) => {
+            setTipo(novoTipo);
+            setTagSelecionada(novoTipo === 'DESPESA' ? TAGS_DESPESA[0] : TAGS_RECEITA[0]);
+            setModoRepeticao('UNICA');
+          }} 
+        />
 
         {/* VALOR (SEM BARRA PISCANTE) */}
         <View style={styles.amountContainer}>
@@ -144,20 +144,14 @@ export default function AddTransactionModal() {
           </TouchableOpacity>
         </View>
 
-        {/* CATEGORIA (GRADE/WRAP AO INVÉS DE SCROLL) */}
+        {/* CATEGORIA */}
         <View style={styles.formGroup}>
           <Text style={[styles.label, { color: colors.text }]}>Categoria</Text>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: 4 }}>
-            {(tipo === 'DESPESA' ? TAGS_DESPESA : TAGS_RECEITA).map((tag) => (
-              <TouchableOpacity 
-                key={tag} 
-                style={[styles.chipGrade, { backgroundColor: isDarkMode ? '#1e293b' : '#f8fafc', borderColor: isDarkMode ? '#334155' : '#e2e8f0' }, tagSelecionada === tag && { backgroundColor: colors.accentLight, borderColor: colors.accent }]} 
-                onPress={() => setTagSelecionada(tag)}
-              >
-                <Text style={[styles.chipText, { color: isDarkMode ? '#cbd5e1' : '#475569' }, tagSelecionada === tag && { color: colors.accent, fontWeight: 'bold' }]}>{tag}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+          <CategorySelector 
+            tipo={tipo} 
+            tagSelecionada={tagSelecionada} 
+            onSelectTag={setTagSelecionada} 
+          />
         </View>
 
         {tagSelecionada.includes('Outros') && (
@@ -225,39 +219,17 @@ export default function AddTransactionModal() {
         </TouchableOpacity>
       </View>
 
-      {/* 👈 MODAL DE SELEÇÃO DE TABELAS (BOTTOM SHEET) */}
-      <Modal visible={modalTabelasVisible} animationType="slide" transparent={true} onRequestClose={() => setModalTabelasVisible(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalSheet, { backgroundColor: colors.card, borderColor: isDarkMode ? '#334155' : '#e2e8f0' }]}>
-            <View style={styles.modalHeader}>
-              <Text style={[styles.modalTitle, { color: colors.text }]}>Selecione a Tabela</Text>
-              <TouchableOpacity onPress={() => setModalTabelasVisible(false)} style={{ padding: 4 }}>
-                <Ionicons name="close-circle" size={28} color={colors.subText} />
-              </TouchableOpacity>
-            </View>
-            
-            <ScrollView style={{ maxHeight: 400 }} showsVerticalScrollIndicator={false}>
-              {contasParaExibir.length === 0 ? (
-                <Text style={{ textAlign: 'center', color: colors.subText, marginTop: 20 }}>Nenhuma tabela disponível.</Text>
-              ) : (
-                contasParaExibir.map(conta => (
-                  <TouchableOpacity 
-                    key={conta.id} 
-                    style={[styles.modalItem, { borderBottomColor: isDarkMode ? '#334155' : '#f1f5f9' }, contaSelecionada === conta.nome && { backgroundColor: colors.accentLight }]} 
-                    onPress={() => {
-                      setContaSelecionada(conta.nome);
-                      setModalTabelasVisible(false);
-                    }}
-                  >
-                    <Text style={{ fontSize: 16, color: colors.text, fontWeight: contaSelecionada === conta.nome ? 'bold' : '500' }}>{conta.nome}</Text>
-                    {contaSelecionada === conta.nome && <Ionicons name="checkmark" size={22} color={colors.accent} />}
-                  </TouchableOpacity>
-                ))
-              )}
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
+      {/* MODAL DE SELEÇÃO DE TABELAS (COMPONENTE) */}
+      <AccountPickerModal 
+        visible={modalTabelasVisible} 
+        onClose={() => setModalTabelasVisible(false)} 
+        contas={contasParaExibir} 
+        contaSelecionada={contaSelecionada} 
+        onSelectConta={(nome) => {
+          setContaSelecionada(nome);
+          setModalTabelasVisible(false);
+        }} 
+      />
 
     </View>
   );
@@ -269,13 +241,6 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 18, fontWeight: 'bold' }, 
   scrollContent: { paddingVertical: 24, paddingBottom: 60 }, 
   
-  typeSelector: { flexDirection: 'row', borderRadius: 30, padding: 6, marginBottom: 32, marginHorizontal: 24 }, 
-  typeBtn: { flex: 1, paddingVertical: 12, borderRadius: 26, alignItems: 'center' }, 
-  typeBtnDespesa: { backgroundColor: '#ef4444', elevation: 2, shadowColor: '#ef4444', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 4 }, 
-  typeBtnReceita: { backgroundColor: '#10b981', elevation: 2, shadowColor: '#10b981', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 4 }, 
-  typeText: { fontSize: 15, fontWeight: 'bold' }, 
-  typeTextActive: { color: '#ffffff' }, 
-  
   amountContainer: { alignItems: 'center', marginBottom: 40 }, 
   currencySymbol: { fontSize: 16, fontWeight: 'bold', marginBottom: 4 }, 
   amountInput: { fontSize: 52, fontWeight: '800', textAlign: 'center', minWidth: 200, letterSpacing: -1 }, 
@@ -286,22 +251,11 @@ const styles = StyleSheet.create({
   input: { borderWidth: 1, borderRadius: 16, padding: 16, fontSize: 16 }, 
   inputDropdown: { borderWidth: 1, borderRadius: 16, padding: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   
-  /* Grade de Categorias */
-  chipGrade: { paddingVertical: 10, paddingHorizontal: 16, borderRadius: 20, marginRight: 8, marginBottom: 10, borderWidth: 1 }, 
-  chipText: { fontSize: 13, fontWeight: '600' }, 
-  
   /* Botões de Forma de Pagamento */
   modoBtn: { flex: 1, paddingVertical: 14, borderRadius: 16, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   modoBtnText: { fontSize: 13, fontWeight: '600' },
   
   footer: { padding: 24, paddingBottom: Platform.OS === 'ios' ? 40 : 24, borderTopWidth: 1 }, 
   saveButton: { borderRadius: 20, paddingVertical: 18, alignItems: 'center', elevation: 3, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 6 }, 
-  saveButtonText: { color: '#ffffff', fontSize: 16, fontWeight: 'bold' },
-
-  /* Estilos do Modal de Tabelas */
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-  modalSheet: { borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, paddingBottom: Platform.OS === 'ios' ? 40 : 24, borderWidth: 1, borderBottomWidth: 0 },
-  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
-  modalTitle: { fontSize: 18, fontWeight: 'bold' },
-  modalItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 16, borderBottomWidth: 1 }
+  saveButtonText: { color: '#ffffff', fontSize: 16, fontWeight: 'bold' }, 
 });

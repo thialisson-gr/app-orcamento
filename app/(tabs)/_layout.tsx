@@ -101,7 +101,13 @@ export default function TabsLayout() {
             borderColor: colors.background // A borda usa o fundo nativo camuflado
           }} 
           activeOpacity={0.8}
-          onPress={() => router.push('/add-transaction')}
+          onPress={() => {
+            if (index === 1) { // 1 é a posição da aba "Tabelas" (accounts) no seu array routes
+              router.push('/add-account');
+            } else {
+              router.push('/add-transaction');
+            }
+          }}
         >
           <Ionicons name="add" size={32} color="#ffffff" />
         </TouchableOpacity>

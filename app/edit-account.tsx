@@ -3,6 +3,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import React, { useState } from 'react';
 import { ActivityIndicator, Alert, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { AccountSplitSlider } from '../components/AccountSplitSlider';
 import { useIdentity } from '../hooks/useIdentity';
 import { useTheme } from '../hooks/useTheme';
 import { atualizarContaNoFirebase } from '../services/firebase/firestore';
@@ -19,14 +20,20 @@ export default function EditAccountScreen() {
   const [nome, setNome] = useState(nomeOriginal);
   const [tipo, setTipo] = useState<'COMUM' | 'INDIVIDUAL' | 'TERCEIROS'>((params.tipoOriginal as any) || 'COMUM');
   const [dono, setDono] = useState<'EU' | 'RAY'>((params.donoOriginal as any) || (perfil || 'EU'));
-  const [porcentagemEu, setPorcentagemEu] = useState(params.porcentagemOriginal as string);
+  // Transformamos em número para o Slider funcionar
+  const [porcentagemEu, setPorcentagemEu] = useState(parseInt(params.porcentagemOriginal as string) || 50);
   const [isLoading, setIsLoading] = useState(false);
+
+  const nomeDoParceiro = perfil === 'RAY' ? 'Thialisson' : 'Rayane';
+
+  const aumentarPorcentagem = () => setPorcentagemEu(prev => Math.min(100, prev + 5));
+  const diminuirPorcentagem = () => setPorcentagemEu(prev => Math.max(0, prev - 5));
 
   const handleSalvar = async () => {
     if (!nome.trim()) return Alert.alert('Atenção', 'O nome não pode ficar vazio.');
     setIsLoading(true);
     
-    const valorDigitado = parseInt(porcentagemEu) || 0;
+    const valorDigitado = porcentagemEu;
     let percEu = 50;
     let percRay = 50;
     
@@ -89,11 +96,12 @@ export default function EditAccountScreen() {
             </View>
 
             {tipo === 'COMUM' && (
-              <View style={styles.formGroup}>
-                <Text style={[styles.label, { color: colors.text }]}>Qual a sua porcentagem? (%)</Text>
-                <TextInput style={[styles.input, { backgroundColor: isDarkMode ? '#0f172a' : '#f8fafc', borderColor: isDarkMode ? '#334155' : '#e2e8f0', color: colors.text }]} keyboardType="numeric" value={porcentagemEu} onChangeText={setPorcentagemEu} />
-                <Text style={styles.helperText}>A parte do parceiro será calculada automaticamente.</Text>
-              </View>
+              <AccountSplitSlider 
+                porcentagemEu={porcentagemEu}
+                onAumentar={aumentarPorcentagem}
+                onDiminuir={diminuirPorcentagem}
+                nomeParceiro={nomeDoParceiro}
+              />
             )}
 
             {tipo === 'INDIVIDUAL' && (
@@ -101,7 +109,7 @@ export default function EditAccountScreen() {
                 <Text style={[styles.label, { color: colors.text }]}>De quem é essa tabela?</Text>
                 <View style={styles.row}>
                   <TouchableOpacity style={[styles.chip, { backgroundColor: isDarkMode ? '#1e293b' : '#f8fafc', borderColor: isDarkMode ? '#334155' : '#e2e8f0' }, dono === 'EU' && { backgroundColor: colors.accentLight, borderColor: colors.accent }]} onPress={() => setDono('EU')}><Text style={[styles.chipText, { color: isDarkMode ? '#cbd5e1' : '#64748b' }, dono === 'EU' && { color: colors.accent, fontWeight: 'bold' }]}>Minha</Text></TouchableOpacity>
-                  <TouchableOpacity style={[styles.chip, { backgroundColor: isDarkMode ? '#1e293b' : '#f8fafc', borderColor: isDarkMode ? '#334155' : '#e2e8f0' }, dono === 'RAY' && { backgroundColor: colors.accentLight, borderColor: colors.accent }]} onPress={() => setDono('RAY')}><Text style={[styles.chipText, { color: isDarkMode ? '#cbd5e1' : '#64748b' }, dono === 'RAY' && { color: colors.accent, fontWeight: 'bold' }]}>Da Ray</Text></TouchableOpacity>
+                  <TouchableOpacity style={[styles.chip, { backgroundColor: isDarkMode ? '#1e293b' : '#f8fafc', borderColor: isDarkMode ? '#334155' : '#e2e8f0' }, dono === 'RAY' && { backgroundColor: colors.accentLight, borderColor: colors.accent }]} onPress={() => setDono('RAY')}><Text style={[styles.chipText, { color: isDarkMode ? '#cbd5e1' : '#64748b' }, dono === 'RAY' && { color: colors.accent, fontWeight: 'bold' }]}>{nomeDoParceiro}</Text></TouchableOpacity>
                 </View>
               </View>
             )}
@@ -129,7 +137,6 @@ const styles = StyleSheet.create({
   formGroup: { marginBottom: 24 }, 
   label: { fontSize: 13, fontWeight: 'bold', marginBottom: 10, textTransform: 'uppercase', letterSpacing: 0.5 }, 
   input: { borderWidth: 1, borderRadius: 16, padding: 16, fontSize: 16 }, 
-  helperText: { fontSize: 12, color: '#64748b', marginTop: 8, fontStyle: 'italic' }, 
   
   row: { flexDirection: 'row', gap: 12 }, 
   chip: { flex: 1, paddingVertical: 14, borderRadius: 24, alignItems: 'center', borderWidth: 1 }, 

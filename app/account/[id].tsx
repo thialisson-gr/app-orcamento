@@ -4,6 +4,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import React, { useState } from 'react';
 import { ActivityIndicator, Alert, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { AccountSummaryCard } from '../../components/AccountSummaryCard';
+import { AccountTransactionItem } from '../../components/AccountTransactionItem';
+import { MonthSelector } from '../../components/MonthSelector';
 import { useAccounts } from '../../hooks/useAccounts';
 import { useTheme } from '../../hooks/useTheme';
 import { useTransactions } from '../../hooks/useTransactions';
@@ -141,108 +144,70 @@ export default function AccountDetailScreen() {
     ]);
   };
 
-  const formatarData = (dataIso: string) => {
-    if (!dataIso) return '';
-    return new Date(dataIso).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
-  };
-
-  const renderItem = (item: any) => (
-    <View key={item.id} style={[styles.transactionItem, { borderBottomColor: isDarkMode ? '#334155' : '#f1f5f9' }]}>
-      
-      {/* Botão de Check/Bolinha */}
-      <TouchableOpacity style={styles.checkboxArea} onPress={() => handleToggleCheck(item.id, item.isPaid)} activeOpacity={0.6}>
-        <View style={[styles.checkbox, { borderColor: isDarkMode ? '#475569' : '#cbd5e1' }, item.isPaid && { backgroundColor: corPrincipal, borderColor: corPrincipal }]}>
-          {item.isPaid && <Ionicons name="checkmark" size={14} color="#fff" />}
-        </View>
-      </TouchableOpacity>
-      
-      {/* Informações da Transação */}
-      <View style={styles.transactionDetails}>
-        <Text style={[styles.transactionDesc, { color: colors.text }, item.isPaid && styles.textStrikethrough]} numberOfLines={1}>{item.descricao}</Text>
-        <Text style={[styles.transactionMeta, { color: colors.subText }]}>{item.tags ? item.tags[0] : ''} {item.isInstallment && `${item.installmentDetails?.current}/${item.installmentDetails?.total}`}</Text>
-      </View>
-      
-      {/* Valores e Data */}
-      <View style={styles.transactionRight}>
-        <Text style={[styles.transactionAmount, { color: colors.text }, item.isPaid && styles.textStrikethroughMuted]}>R$ {item.amount.toFixed(2)}</Text>
-        
-        {item.isPaid ? (
-          <View style={{ alignItems: 'flex-end', marginTop: 2 }}>
-            <Text style={{ fontSize: 9, color: colors.subText }}>{isReceita ? 'Previsto:' : 'Venc:'} {formatarData(item.paymentDate || item.date)}</Text>
-            <Text style={{ fontSize: 10, color: corPrincipal, fontWeight: '700', marginTop: 1 }}>{item.paidAt ? `${isReceita ? 'Recebido:' : 'Pago:'} ${formatarData(item.paidAt)}` : (isReceita ? 'Recebido' : 'Pago')}</Text>
-          </View>
-        ) : (
-          <Text style={{ fontSize: 10, color: colors.subText, marginTop: 2 }}>{isReceita ? 'Previsto:' : 'Vence:'} {formatarData(item.paymentDate || item.date)}</Text>
-        )}
-      </View>
-
-      {/* 👇 OS TRÊS PONTINHOS VISÍVEIS! */}
-      <TouchableOpacity style={styles.optionsArea} onPress={() => handleOpcoesTransacao(item)}>
-        <Ionicons name="ellipsis-vertical" size={20} color={colors.subText} />
-      </TouchableOpacity>
-
-    </View>
-  );
-
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <Stack.Screen options={{ headerShown: false }} />
 
-      {/* CABEÇALHO COLORIDO */}
-      <LinearGradient colors={gradColors as [string, string]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.headerGradient}>
+      {/* CABEÇALHO COLORIDO (FORMATO SCREENHEADER) */}
+      <LinearGradient 
+        colors={gradColors as [string, string]} 
+        start={{ x: 0, y: 0 }} 
+        end={{ x: 1, y: 1 }} 
+        style={{
+          paddingTop: Platform.OS === 'ios' ? 60 : 40,
+          paddingBottom: 24, 
+          paddingHorizontal: 20,
+          borderBottomLeftRadius: 20,
+          borderBottomRightRadius: 20,
+          elevation: 4,
+          shadowColor: corPrincipal,
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.2,
+          shadowRadius: 6
+        }}
+      >
         <View style={styles.headerTopRow}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton} activeOpacity={0.7}><Ionicons name="arrow-back" size={24} color="#ffffff" /></TouchableOpacity>
-          <Text style={styles.headerTitle} numberOfLines={1}>{nomeConta}</Text>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backButton} activeOpacity={0.7}>
+            <Ionicons name="arrow-back" size={24} color="#ffffff" />
+          </TouchableOpacity>
+          <Text style={[styles.headerTitle, { letterSpacing: 0.5, fontSize: 20 }]} numberOfLines={1}>{nomeConta}</Text>
           <View style={{ width: 40 }} />
         </View>
 
         {/* SELETOR DE MÊS (PÍLULA CLARA) */}
-        <View style={styles.monthSelectorContainer}>
-          <TouchableOpacity onPress={irMesAnterior} style={styles.miniArrow}><Ionicons name="chevron-back" size={16} color="#ffffff" /></TouchableOpacity>
-          <Text style={styles.monthText}>{mesFormatado}</Text>
-          <TouchableOpacity onPress={irProximoMes} style={styles.miniArrow}><Ionicons name="chevron-forward" size={16} color="#ffffff" /></TouchableOpacity>
-        </View>
+        <MonthSelector 
+          mesFormatado={mesFormatado} 
+          onPrev={irMesAnterior} 
+          onNext={irProximoMes} 
+        />
       </LinearGradient>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         
         {/* CARTÃO DE RESUMO DA FATURA (SQUIRCLE) */}
-        <View style={[styles.summaryCard, { backgroundColor: colors.card, borderColor: isDarkMode ? '#334155' : 'transparent', borderWidth: isDarkMode ? 1 : 0 }]}>
-          <View style={styles.cardInfoRow}>
-            <View style={{flexDirection: 'row', alignItems: 'center', gap: 6}}>
-               <Ionicons name={isReceita ? "wallet-outline" : "receipt-outline"} size={16} color={colors.subText}/>
-               <Text style={[styles.cardLabelMain, { color: colors.subText }]}>{isReceita ? 'Total Esperado' : 'Total da Fatura'}</Text>
-            </View>
-            <Text style={[styles.cardValueMain, { color: colors.text }]}>R$ {totalGeral.toFixed(2)}</Text>
-          </View>
-
-          <View style={styles.cardStatsGrid}>
-            <View style={styles.statItem}>
-              <View style={{flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 4}}>
-                <Ionicons name="checkmark-circle" size={14} color={corPrincipal} />
-                <Text style={[styles.statItemLabel, {color: colors.subText, marginBottom: 0}]}>{isReceita ? 'Recebido' : 'Pago'}</Text>
-              </View>
-              <Text style={[styles.statItemValue, {color: corPrincipal}]}>R$ {totalConcluido.toFixed(2)}</Text>
-            </View>
-            
-            <View style={{ width: 1, backgroundColor: isDarkMode ? '#334155' : '#f1f5f9', marginHorizontal: 12 }} />
-            
-            <View style={[styles.statItem, {alignItems: 'flex-end'}]}>
-              <View style={{flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 4, justifyContent: 'flex-end'}}>
-                <Ionicons name="alert-circle" size={14} color={totalPendente > 0 ? "#ef4444" : colors.subText} />
-                <Text style={[styles.statItemLabel, {color: colors.subText, marginBottom: 0}]}>Pendente</Text>
-              </View>
-              <Text style={[styles.statItemValue, totalPendente > 0 ? { color: '#ef4444' } : { color: colors.subText }]}>R$ {totalPendente.toFixed(2)}</Text>
-            </View>
-          </View>
-        </View>
+        <AccountSummaryCard 
+          isReceita={isReceita} 
+          totalGeral={totalGeral} 
+          totalConcluido={totalConcluido} 
+          totalPendente={totalPendente} 
+          corPrincipal={corPrincipal} 
+        />
 
         {/* LISTAS DE TRANSAÇÕES */}
         {transacoesPendentes.length > 0 && (
           <View style={styles.listSection}>
             <Text style={[styles.sectionTitle, { color: colors.subText }]}>Pendentes</Text>
             <View style={[styles.listContainer, { backgroundColor: colors.card, borderColor: isDarkMode ? '#334155' : 'transparent', borderWidth: isDarkMode ? 1 : 0 }]}>
-              {transacoesPendentes.map(renderItem)}
+              {transacoesPendentes.map((item) => (
+                <AccountTransactionItem
+                  key={item.id}
+                  item={item}
+                  isReceita={isReceita}
+                  corPrincipal={corPrincipal}
+                  onToggleCheck={() => handleToggleCheck(item.id, item.isPaid)}
+                  onOptionsPress={() => handleOpcoesTransacao(item)}
+                />
+              ))}
             </View>
           </View>
         )}
@@ -251,7 +216,16 @@ export default function AccountDetailScreen() {
           <View style={styles.listSection}>
             <Text style={[styles.sectionTitle, { color: colors.subText }]}>{isReceita ? 'Recebidos' : 'Pagos'}</Text>
             <View style={[styles.listContainer, { backgroundColor: colors.card, borderColor: isDarkMode ? '#334155' : 'transparent', borderWidth: isDarkMode ? 1 : 0 }]}>
-              {transacoesPagas.map(renderItem)}
+              {transacoesPagas.map((item) => (
+                <AccountTransactionItem
+                  key={item.id}
+                  item={item}
+                  isReceita={isReceita}
+                  corPrincipal={corPrincipal}
+                  onToggleCheck={() => handleToggleCheck(item.id, item.isPaid)}
+                  onOptionsPress={() => handleOpcoesTransacao(item)}
+                />
+              ))}
             </View>
           </View>
         )}
@@ -296,40 +270,12 @@ const styles = StyleSheet.create({
   headerTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
   backButton: { width: 40, height: 40, justifyContent: 'center', alignItems: 'flex-start' },
   headerTitle: { fontSize: 20, fontWeight: 'bold', color: '#ffffff', flex: 1, textAlign: 'center' },
-  
-  monthSelectorContainer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.2)', alignSelf: 'center', borderRadius: 30, paddingHorizontal: 16, paddingVertical: 8 },
-  miniArrow: { paddingHorizontal: 8 }, 
-  monthText: { fontSize: 14, fontWeight: 'bold', color: '#ffffff', marginHorizontal: 12 },
-  
+    
   scrollContent: { padding: 20, paddingBottom: 120 },
-  
-  summaryCard: { marginTop: -40, borderRadius: 24, padding: 24, marginBottom: 24, elevation: 4, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 10 },
-  cardInfoRow: { marginBottom: 20, alignItems: 'center' }, 
-  cardLabelMain: { fontSize: 13, marginBottom: 6, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 }, 
-  cardValueMain: { fontSize: 34, fontWeight: '800' },
-  cardStatsGrid: { flexDirection: 'row', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: 'rgba(0,0,0,0.05)', paddingTop: 16 },
-  statItem: { flex: 1 }, 
-  statItemLabel: { fontSize: 12, marginBottom: 4, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 }, 
-  statItemValue: { fontSize: 18, fontWeight: 'bold' },
   
   listSection: { marginBottom: 24 }, 
   sectionTitle: { fontSize: 13, fontWeight: 'bold', marginBottom: 12, marginLeft: 8, textTransform: 'uppercase', letterSpacing: 0.5 },
   listContainer: { borderRadius: 20, paddingHorizontal: 16, overflow: 'hidden', elevation: 1, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 6 },
-  
-  transactionItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 16, borderBottomWidth: 1 },
-  checkboxArea: { width: 36, height: 36, justifyContent: 'center', alignItems: 'flex-start' }, 
-  checkbox: { width: 20, height: 20, borderRadius: 10, borderWidth: 1.5, justifyContent: 'center', alignItems: 'center' },
-  transactionDetails: { flex: 1, paddingRight: 8 }, 
-  transactionDesc: { fontSize: 15, fontWeight: '600', marginBottom: 2 }, 
-  transactionMeta: { fontSize: 12 },
-  transactionRight: { alignItems: 'flex-end', justifyContent: 'center' }, 
-  transactionAmount: { fontSize: 15, fontWeight: 'bold', marginBottom: 2 }, 
-  
-  // OS 3 PONTINHOS
-  optionsArea: { paddingLeft: 12, paddingVertical: 10, justifyContent: 'center', alignItems: 'flex-end' },
-  
-  textStrikethrough: { textDecorationLine: 'line-through', color: '#94a3b8' }, 
-  textStrikethroughMuted: { color: '#94a3b8' },
   
   emptyState: { alignItems: 'center', justifyContent: 'center', paddingVertical: 60 }, 
   emptyIconCircle: { width: 80, height: 80, borderRadius: 40, justifyContent: 'center', alignItems: 'center', marginBottom: 16 }, 

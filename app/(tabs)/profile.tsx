@@ -4,7 +4,12 @@ import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { signOut } from 'firebase/auth';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Modal, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ExportPDFButton } from '../../components/ExportPDFButton';
+import { ScreenHeader } from '../../components/ScreenHeader';
+import { SplitRuleModal } from '../../components/SplitRuleModal';
+import { ThemeSelector } from '../../components/ThemeSelector';
+import { UserProfileCard } from '../../components/UserProfileCard';
 import { useAccounts } from '../../hooks/useAccounts';
 import { useIdentity } from '../../hooks/useIdentity';
 import { useTheme } from '../../hooks/useTheme';
@@ -15,7 +20,7 @@ import { buscarRegraPadrao, salvarRegraPadrao } from '../../services/firebase/fi
 const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
 export default function ProfileScreen() {
-  const { isDarkMode, activeTheme, setTheme, colors } = useTheme(); 
+  const { isDarkMode, colors } = useTheme();
   const { contas } = useAccounts();
   const { transacoes } = useTransactions();
   const { perfil } = useIdentity(); 
@@ -235,52 +240,16 @@ export default function ProfileScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <View style={[styles.header, { backgroundColor: colors.card, borderBottomColor: isDarkMode ? '#334155' : '#e5e7eb' }]}>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>Perfil</Text>
-      </View>
+      <ScreenHeader title="Perfil" />
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         
         {/* === CARTÃO DE USUÁRIO === */}
-        <View style={[styles.userCard, { backgroundColor: colors.card, borderColor: isDarkMode ? '#334155' : 'transparent', borderWidth: isDarkMode ? 1 : 0 }]}>
-          <View style={[styles.avatar, { backgroundColor: colors.accent }]}><Text style={styles.avatarText}>{inicial}</Text></View>
-          <View style={styles.userInfo}>
-            <Text style={[styles.userName, { color: colors.text }]}>{nomeExibicao}</Text>
-            <Text style={[styles.userEmail, { color: colors.subText }]}>{emailLogado}</Text>
-          </View>
-        </View>
+        <UserProfileCard inicial={inicial} nomeExibicao={nomeExibicao} emailLogado={emailLogado} />
 
-        {/* === APARÊNCIA (OS 4 TEMAS ATUALIZADOS) === */}
+        {/* === APARÊNCIA === */}
         <Text style={[styles.sectionTitle, { color: colors.subText }]}>Aparência do App</Text>
-        <View style={[styles.menuGroup, { backgroundColor: colors.card, padding: 16, borderColor: isDarkMode ? '#334155' : 'transparent', borderWidth: isDarkMode ? 1 : 0 }]}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 6 }}>
-            
-            {/* Tema Esmeralda */}
-            <TouchableOpacity onPress={() => setTheme('emerald')} style={[styles.themeOption, activeTheme === 'emerald' && { borderColor: '#10B981', borderWidth: 2, backgroundColor: isDarkMode ? 'rgba(16, 185, 129, 0.1)' : '#ecfdf5' }]}>
-              <View style={[styles.colorCircle, { backgroundColor: '#10B981' }]} />
-              <Text style={[styles.themeText, { color: colors.text, fontWeight: activeTheme === 'emerald' ? 'bold' : '600' }]} numberOfLines={1}>Esmeralda</Text>
-            </TouchableOpacity>
-            
-            {/* Tema Safira (Novo Azul) */}
-            <TouchableOpacity onPress={() => setTheme('sapphire')} style={[styles.themeOption, activeTheme === 'sapphire' && { borderColor: '#2563EB', borderWidth: 2, backgroundColor: isDarkMode ? 'rgba(37, 99, 235, 0.1)' : '#eff6ff' }]}>
-              <View style={[styles.colorCircle, { backgroundColor: '#2563EB' }]} />
-              <Text style={[styles.themeText, { color: colors.text, fontWeight: activeTheme === 'sapphire' ? 'bold' : '600' }]} numberOfLines={1}>Safira</Text>
-            </TouchableOpacity>
-
-            {/* Tema Grafite (Novo Preto/Minimalista) */}
-            <TouchableOpacity onPress={() => setTheme('graphite')} style={[styles.themeOption, activeTheme === 'graphite' && { borderColor: '#18181B', borderWidth: 2, backgroundColor: isDarkMode ? 'rgba(24, 24, 27, 0.1)' : '#f4f4f5' }]}>
-              <View style={[styles.colorCircle, { backgroundColor: '#18181B' }]} />
-              <Text style={[styles.themeText, { color: colors.text, fontWeight: activeTheme === 'graphite' ? 'bold' : '600' }]} numberOfLines={1}>Grafite</Text>
-            </TouchableOpacity>
-            
-            {/* Tema Cyber Dark */}
-            <TouchableOpacity onPress={() => setTheme('dark')} style={[styles.themeOption, activeTheme === 'dark' && { borderColor: '#06b6d4', borderWidth: 2, backgroundColor: 'rgba(6, 182, 212, 0.1)' }]}>
-              <View style={[styles.colorCircle, { backgroundColor: '#1e293b', borderWidth: 2, borderColor: '#06b6d4' }]} />
-              <Text style={[styles.themeText, { color: colors.text, fontWeight: activeTheme === 'dark' ? 'bold' : '600' }]} numberOfLines={1}>Cyber</Text>
-            </TouchableOpacity>
-
-          </View>
-        </View>
+        <ThemeSelector />
 
         {/* === CONFIGURAÇÕES === */}
         <Text style={[styles.sectionTitle, { color: colors.subText }]}>Configurações</Text>
@@ -298,20 +267,16 @@ export default function ProfileScreen() {
         <Text style={[styles.sectionTitle, { color: colors.subText }]}>Relatórios</Text>
         <View style={[styles.menuGroup, { backgroundColor: colors.card, padding: 20, borderColor: isDarkMode ? '#334155' : 'transparent', borderWidth: isDarkMode ? 1 : 0 }]}>
           
+          {/* Seletor de Mês (Trazendo ele de volta!) */}
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: isDarkMode ? '#0f172a' : '#f8fafc', padding: 6, borderRadius: 30, marginBottom: 20, borderWidth: 1, borderColor: isDarkMode ? '#334155' : '#e2e8f0' }}>
             <TouchableOpacity onPress={irMesAnterior} style={{ padding: 10, backgroundColor: colors.accentLight, borderRadius: 24 }}><Ionicons name="chevron-back" size={16} color={colors.accent} /></TouchableOpacity>
             <Text style={{ fontSize: 15, fontWeight: 'bold', color: colors.text }}>{mesFormatado}</Text>
             <TouchableOpacity onPress={irProximoMes} style={{ padding: 10, backgroundColor: colors.accentLight, borderRadius: 24 }}><Ionicons name="chevron-forward" size={16} color={colors.accent} /></TouchableOpacity>
           </View>
 
-          <TouchableOpacity style={[styles.exportBtn, { backgroundColor: colors.accent }, isExporting && { opacity: 0.7 }]} onPress={exportarPDF} disabled={isExporting} activeOpacity={0.8}>
-            {isExporting ? <ActivityIndicator color="#fff" /> : (
-              <>
-                <Ionicons name="document-text" size={22} color="#fff" />
-                <Text style={{ color: '#fff', fontWeight: 'bold', marginLeft: 10, fontSize: 16 }}>Exportar Relatório PDF</Text>
-              </>
-            )}
-          </TouchableOpacity>
+          {/* O NOVO botão de Exportar */}
+          <ExportPDFButton isExporting={isExporting} onPress={exportarPDF} />
+          
         </View>
 
         {/* === CONTA === */}
@@ -326,80 +291,27 @@ export default function ProfileScreen() {
         </View>
       </ScrollView>
 
-      {/* MODAL DE REGRA */}
-      <Modal animationType="slide" transparent={true} visible={modalRegraVisible} onRequestClose={() => setModalRegraVisible(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { backgroundColor: colors.card, borderColor: isDarkMode ? '#334155' : '#e2e8f0' }]}>
-            <Text style={[styles.modalTitle, { color: colors.text }]}>Regra Padrão do Casal</Text>
-            
-            <View style={{ backgroundColor: isDarkMode ? '#0f172a' : '#f8fafc', padding: 20, borderRadius: 20, marginBottom: 24, borderWidth: 1, borderColor: isDarkMode ? '#334155' : '#e2e8f0' }}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Text style={{ fontSize: 15, fontWeight: 'bold', color: colors.text }}>Sua Parte (%)</Text>
-                
-                <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: colors.card, borderRadius: 16, padding: 6, borderWidth: 1, borderColor: isDarkMode ? '#475569' : '#e2e8f0' }}>
-                  <TouchableOpacity onPress={() => regraEu > 0 && setRegraEu(regraEu - 1)} style={[styles.pctBtn, { backgroundColor: isDarkMode ? '#1e293b' : '#f1f5f9' }]} activeOpacity={0.7}>
-                    <Ionicons name="remove" size={20} color={colors.accent}/>
-                  </TouchableOpacity>
-                  
-                  <Text style={{ width: 48, textAlign: 'center', fontSize: 18, fontWeight: 'bold', color: colors.accent }}>{regraEu}</Text>
-                  
-                  <TouchableOpacity onPress={() => regraEu < 100 && setRegraEu(regraEu + 1)} style={[styles.pctBtn, { backgroundColor: isDarkMode ? '#1e293b' : '#f1f5f9' }]} activeOpacity={0.7}>
-                    <Ionicons name="add" size={20} color={colors.accent}/>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            </View>
-            
-            <View style={styles.modalFooter}>
-              <TouchableOpacity style={[styles.cancelBtn, { backgroundColor: isDarkMode ? '#1e293b' : '#f1f5f9', borderWidth: 1, borderColor: isDarkMode ? '#334155' : '#e2e8f0' }]} onPress={() => setModalRegraVisible(false)}>
-                <Text style={[styles.cancelBtnText, { color: isDarkMode ? '#cbd5e1' : '#64748b' }]}>Cancelar</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.confirmBtn, { backgroundColor: colors.accent }]} onPress={handleSalvarRegra}>
-                <Text style={styles.confirmBtnText}>Salvar</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
+      {/* MODAL DE REGRA (COMPONENTE) */}
+      <SplitRuleModal 
+        visible={modalRegraVisible} 
+        onClose={() => setModalRegraVisible(false)} 
+        onSave={handleSalvarRegra} 
+        regraEu={regraEu} 
+        setRegraEu={setRegraEu} 
+      />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 }, 
-  header: { padding: 16, paddingTop: Platform.OS === 'ios' ? 60 : 50, borderBottomWidth: 1, alignItems: 'center' }, 
-  headerTitle: { fontSize: 18, fontWeight: 'bold' }, 
+  container: { flex: 1 },
   scrollContent: { padding: 20, paddingBottom: 100 }, 
-  
-  userCard: { flexDirection: 'row', alignItems: 'center', padding: 20, borderRadius: 24, marginBottom: 24, elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 6 }, 
-  avatar: { width: 60, height: 60, borderRadius: 30, justifyContent: 'center', alignItems: 'center', marginRight: 16 }, 
-  avatarText: { fontSize: 24, fontWeight: 'bold', color: '#ffffff' }, 
-  userInfo: { flex: 1 }, 
-  userName: { fontSize: 20, fontWeight: 'bold', marginBottom: 4, textTransform: 'capitalize' }, 
-  userEmail: { fontSize: 14 }, 
-  
+    
   sectionTitle: { fontSize: 13, fontWeight: 'bold', marginBottom: 10, marginLeft: 8, textTransform: 'uppercase', letterSpacing: 0.5 }, 
   menuGroup: { borderRadius: 24, overflow: 'hidden', marginBottom: 24, elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 6 }, 
   
   menuItem: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 20 }, 
   menuItemLeft: { flexDirection: 'row', alignItems: 'center' }, 
   menuIconBox: { width: 44, height: 44, borderRadius: 16, justifyContent: 'center', alignItems: 'center', marginRight: 16 }, 
-  menuItemText: { fontSize: 16, fontWeight: '600' }, 
-  
-  themeOption: { flex: 1, alignItems: 'center', paddingVertical: 14, paddingHorizontal: 4, borderRadius: 16, borderWidth: 1, borderColor: 'transparent', backgroundColor: 'rgba(0,0,0,0.02)' }, 
-  colorCircle: { width: 34, height: 34, borderRadius: 17, elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4 },
-  themeText: { fontSize: 10, marginTop: 8, textAlign: 'center' },
-  
-  exportBtn: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', padding: 16, borderRadius: 20, elevation: 3, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 6 },
-  
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }, 
-  modalContent: { borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, paddingBottom: Platform.OS === 'ios' ? 40 : 24, borderWidth: 1, borderBottomWidth: 0 }, 
-  modalTitle: { fontSize: 20, fontWeight: 'bold', marginBottom: 20, textAlign: 'center' }, 
-  pctBtn: { width: 44, height: 44, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
-  
-  modalFooter: { flexDirection: 'row', gap: 16 }, 
-  cancelBtn: { flex: 1, paddingVertical: 16, borderRadius: 16, alignItems: 'center' }, 
-  cancelBtnText: { fontSize: 16, fontWeight: 'bold' }, 
-  confirmBtn: { flex: 1, paddingVertical: 16, borderRadius: 16, alignItems: 'center', elevation: 3, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 6 }, 
-  confirmBtnText: { color: '#fff', fontSize: 16, fontWeight: 'bold' }
+  menuItemText: { fontSize: 16, fontWeight: '600' }
 });
