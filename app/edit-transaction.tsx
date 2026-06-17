@@ -9,9 +9,11 @@ import { AccountPickerModal } from '../components/AccountPickerModal';
 import { CategorySelector, TAGS_DESPESA, TAGS_RECEITA } from '../components/CategorySelector';
 import { TransactionTypeSelector } from '../components/TransactionTypeSelector';
 import { useAccounts } from '../hooks/useAccounts';
+import { useIdentity } from '../hooks/useIdentity'; // 👈 Importado
 import { useTheme } from '../hooks/useTheme';
 import { useTransactions } from '../hooks/useTransactions';
 import { atualizarTransacaoNoFirebase, atualizarTransacoesRecorrentes } from '../services/firebase/firestore';
+import { notificarAcao } from '../services/notifications'; // 👈 Importado
 
 export default function EditTransactionScreen() {
   const params = useLocalSearchParams();
@@ -20,7 +22,8 @@ export default function EditTransactionScreen() {
   const { contas } = useAccounts();
   const { transacoes } = useTransactions();
   const { colors, isDarkMode } = useTheme(); 
-
+  const { perfil } = useIdentity(); // 👈 Puxando a identidade
+  
   const [tipo, setTipo] = useState<'DESPESA' | 'RECEITA'>('DESPESA');
   const [valor, setValor] = useState('');
   const [descricao, setDescricao] = useState('');
@@ -97,7 +100,16 @@ export default function EditTransactionScreen() {
         tipo, valorFormatado: valor, descricao, contaSelecionada, tagSelecionada: tagFinal, isTerceiro: tipo === 'DESPESA' ? isTerceiro : false, nomeTerceiro, dataPagamento: dataAlvo.toLocaleDateString('pt-BR') 
       });
       setIsLoading(false);
-      if (res.sucesso) router.back(); else Alert.alert('Erro', 'Falha ao atualizar.');
+      if (res.sucesso) {
+        // 👇 DISPARA A NOTIFICAÇÃO DE ALTERAÇÃO ÚNICA
+        const contaCompleta = contas.find(c => c.nome === contaSelecionada);
+        if (contaCompleta && perfil) {
+          notificarAcao(perfil as 'EU' | 'RAY', contaCompleta, 'alterou', descricao);
+        }
+        router.back();
+      } else {
+        Alert.alert('Erro', 'Falha ao atualizar.');
+      }
     };
 
     if (isRecorrente && parentId) {
@@ -125,7 +137,16 @@ export default function EditTransactionScreen() {
             });
 
             setIsLoading(false);
-            if (res.sucesso) router.back(); else Alert.alert('Erro', 'Falha ao atualizar em massa.');
+            if (res.sucesso) {
+              // 👇 DISPARA A NOTIFICAÇÃO DE ALTERAÇÃO EM MASSA
+              const contaCompleta = contas.find(c => c.nome === contaSelecionada);
+              if (contaCompleta && perfil) {
+                notificarAcao(perfil as 'EU' | 'RAY', contaCompleta, 'alterou', `${descricao} (e futuras)`);
+              }
+              router.back();
+            } else {
+              Alert.alert('Erro', 'Falha ao atualizar em massa.');
+            }
         }}
       ]);
     } else {
@@ -147,7 +168,7 @@ export default function EditTransactionScreen() {
       
       <KeyboardAwareScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" enableOnAndroid={true} extraScrollHeight={Platform.OS === 'ios' ? 20 : 0}>
         
-        {/* TIPO: DESPESA / RECEITA (PÍLULA) */}
+        {/* TIPO: DESPESA / RECEITA */}
         <TransactionTypeSelector 
           tipo={tipo} 
           onChange={(novoTipo) => {
@@ -156,7 +177,7 @@ export default function EditTransactionScreen() {
           }} 
         />
 
-        {/* VALOR (COR DINÂMICA) */}
+        {/* VALOR */}
         <View style={styles.amountContainer}>
           <Text style={[styles.currencySymbol, { color: tipo === 'RECEITA' ? '#10b981' : '#ef4444' }]}>R$</Text>
           <TextInput 
@@ -171,7 +192,7 @@ export default function EditTransactionScreen() {
           />
         </View>
 
-        {/* TABELA (MENU SELETOR MODERNO) */}
+        {/* TABELA */}
         <View style={styles.formGroup}>
           <Text style={[styles.label, { color: colors.text }]}>Tabela</Text>
           <TouchableOpacity 
@@ -186,7 +207,6 @@ export default function EditTransactionScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* CATEGORIA (GRADE/WRAP AO INVÉS DE SCROLL) */}
         {/* CATEGORIA */}
         <View style={styles.formGroup}>
           <Text style={[styles.label, { color: colors.text }]}>Categoria</Text>
@@ -218,7 +238,7 @@ export default function EditTransactionScreen() {
           {showDatePicker && <DateTimePicker themeVariant={isDarkMode ? "dark" : "light"} value={dataAlvo} mode="date" display="default" onChange={onChangeDate} />}
         </View>
 
-        {/* TERCEIROS (SQUIRCLE) */}
+        {/* TERCEIROS */}
         {tipo === 'DESPESA' && !isContaTerceiros && (
           <View style={[styles.toggleGroup, { backgroundColor: isDarkMode ? '#1e293b' : '#f8fafc', borderColor: isDarkMode ? '#334155' : '#e2e8f0' }]}>
             <View style={styles.toggleHeader}>
@@ -238,7 +258,6 @@ export default function EditTransactionScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* MODAL DE SELEÇÃO DE TABELAS (COMPONENTE) */}
       <AccountPickerModal 
         visible={modalTabelasVisible} 
         onClose={() => setModalTabelasVisible(false)} 
@@ -276,4 +295,4 @@ const styles = StyleSheet.create({
   footer: { padding: 24, paddingBottom: Platform.OS === 'ios' ? 40 : 24, borderTopWidth: 1 }, 
   saveButton: { borderRadius: 20, paddingVertical: 18, alignItems: 'center', elevation: 3, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 6 }, 
   saveButtonText: { color: '#ffffff', fontSize: 16, fontWeight: 'bold' },
-  });
+});

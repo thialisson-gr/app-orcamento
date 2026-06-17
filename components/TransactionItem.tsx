@@ -1,65 +1,144 @@
-// components/TransactionItem.tsx
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
-import { Text, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useTheme } from '../hooks/useTheme';
 
-interface TransactionItemProps {
-  item: any;
-  onPress: () => void;
-}
+// Função auxiliar para deixar a data limpa (ex: 15/Jan)
+const formatarData = (dataString: string) => {
+  if (!dataString) return '';
+  const data = new Date(dataString);
+  return data.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }).replace(' de ', '/').replace('.', '');
+};
 
-export function TransactionItem({ item, onPress }: TransactionItemProps) {
+// Função para escolher um ícone que combine com a categoria
+const getIconName = (tag: string) => {
+  const t = tag.toLowerCase();
+  if (t.includes('mercado') || t.includes('comida') || t.includes('alimentação')) return 'cart-outline';
+  if (t.includes('carro') || t.includes('transporte') || t.includes('combustível')) return 'car-outline';
+  if (t.includes('casa') || t.includes('aluguel') || t.includes('moradia') || t.includes('conta')) return 'home-outline';
+  if (t.includes('lazer') || t.includes('entretenimento')) return 'game-controller-outline';
+  if (t.includes('saúde') || t.includes('farmácia') || t.includes('medicação')) return 'medkit-outline';
+  if (t.includes('roupa') || t.includes('vestuário')) return 'shirt-outline';
+  if (t.includes('receita') || t.includes('salário') || t.includes('dinheiro')) return 'cash-outline';
+  if (t.includes('estudo') || t.includes('curso') || t.includes('educação')) return 'book-outline';
+  return 'receipt-outline'; // Ícone padrão
+};
+
+export function TransactionItem({ item, onPress }: { item: any, onPress: () => void }) {
   const { colors, isDarkMode } = useTheme();
-
-  // A formatação de data agora fica isolada aqui dentro!
-  const formatarData = (dataIso: string) => {
-    if (!dataIso) return '';
-    const data = new Date(dataIso);
-    return data.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }); 
-  };
-
+  
   const isReceita = item.type === 'RECEITA';
+  const tagPrincipal = item.tags && item.tags.length > 0 ? item.tags[0] : 'Outros';
+  const iconName = getIconName(tagPrincipal);
+  
+  // Captura a data exata da compra/inserção
+  const dataInsercao = item.purchaseDate ? formatarData(item.purchaseDate) : formatarData(item.date);
 
   return (
     <TouchableOpacity 
-      style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: colors.card, padding: 14, borderRadius: 16, marginBottom: 12, elevation: 1, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 4, borderWidth: isDarkMode ? 1 : 0, borderColor: '#334155' }} 
-      activeOpacity={0.7} 
+      style={[styles.container, { backgroundColor: colors.card, borderColor: isDarkMode ? '#334155' : '#f1f5f9' }]} 
       onPress={onPress}
+      activeOpacity={0.7}
     >
-      {/* Ícone Squircle */}
-      <View style={{ width: 42, height: 42, borderRadius: 12, backgroundColor: isReceita ? (isDarkMode ? 'rgba(16, 185, 129, 0.2)' : '#ecfdf5') : colors.accentLight, justifyContent: 'center', alignItems: 'center', marginRight: 12 }}>
-        <Ionicons name={isReceita ? "trending-up" : "cart-outline"} size={20} color={isReceita ? "#10b981" : colors.accent} />
+      {/* 1. Ícone Redondo Dinâmico */}
+      <View style={[styles.iconContainer, { backgroundColor: isReceita ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)' }]}>
+        <Ionicons name={iconName as any} size={22} color={isReceita ? '#10b981' : '#ef4444'} />
       </View>
-      
-      {/* Meio: Descrição + (Categoria e Tabela) */}
-      <View style={{ flex: 1, marginRight: 8 }}>
-        <Text style={{ fontSize: 15, fontWeight: 'bold', color: colors.text, marginBottom: 2 }} numberOfLines={1}>{item.descricao}</Text>
+
+      {/* 2. Textos e Detalhes */}
+      <View style={styles.infoContainer}>
+        {/* Título Principal */}
+        <Text style={[styles.title, { color: colors.text }]} numberOfLines={1}>
+          {item.descricao}
+        </Text>
         
-        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          <Text style={{ fontSize: 11, color: colors.subText, fontWeight: '600' }}>{item.tags ? item.tags[0] : 'Outros'}</Text>
-          <Text style={{ fontSize: 11, color: colors.subText, marginHorizontal: 4 }}>•</Text>
-          <Text style={{ fontSize: 11, color: colors.subText }}>{item.accountId}</Text>
+        {/* Linha da Tabela e Tag */}
+        <View style={styles.subInfoRow}>
+          <Ionicons name="wallet-outline" size={12} color={colors.subText} style={{ marginRight: 4 }} />
+          <Text style={[styles.badgeText, { color: colors.subText }]} numberOfLines={1}>
+            {item.accountId}
+          </Text>
+          
+          <View style={[styles.dot, { backgroundColor: isDarkMode ? '#475569' : '#cbd5e1' }]} />
+          
+          <Text style={[styles.badgeText, { color: colors.subText, flexShrink: 1 }]} numberOfLines={1}>
+            {tagPrincipal}
+          </Text>
         </View>
-      </View>
-      
-      {/* Direita: Valor + Status + Data */}
-      <View style={{ alignItems: 'flex-end', justifyContent: 'center', paddingRight: 10, borderRightWidth: 1, borderRightColor: isDarkMode ? '#334155' : '#f1f5f9' }}>
-        <Text style={{ fontSize: 15, fontWeight: 'bold', marginBottom: 2, color: isReceita ? '#10b981' : colors.text }}>{isReceita ? '+' : ''}R$ {item.amount.toFixed(2)}</Text>
-        
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-          {item.isPaid ? (
-            <Text style={{ fontSize: 10, color: '#10b981', fontWeight: 'bold' }}>✅ {formatarData(item.dateParaExibir)}</Text>
-          ) : (
-            <Text style={{ fontSize: 10, color: colors.subText, fontWeight: '600' }}>⏳ {formatarData(item.dateParaExibir)}</Text>
-          )}
+
+        {/* Linha da Data de Inserção */}
+        <View style={[styles.subInfoRow, { marginTop: 4 }]}>
+          <Ionicons name="calendar-outline" size={12} color={colors.subText} style={{ marginRight: 4 }} />
+          <Text style={{ fontSize: 11, color: colors.subText, fontWeight: '500' }}>
+            Inserido dia {dataInsercao}
+          </Text>
         </View>
       </View>
 
-      {/* Os 3 Pontinhos no canto */}
-      <View style={{ paddingLeft: 10 }}>
-        <Ionicons name="ellipsis-vertical" size={18} color={colors.subText} />
+      {/* 3. Valor Formatado */}
+      <View style={styles.amountContainer}>
+        <Text style={[styles.amount, { color: isReceita ? '#10b981' : colors.text }]}>
+          {isReceita ? '+' : '-'} R$ {item.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+        </Text>
       </View>
     </TouchableOpacity>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 20,
+    borderWidth: 1,
+    marginBottom: 12,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+  },
+  iconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 14,
+  },
+  infoContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    paddingRight: 10,
+  },
+  title: {
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 6,
+    letterSpacing: -0.3,
+  },
+  subInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  badgeText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  dot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    marginHorizontal: 6,
+  },
+  amountContainer: {
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+  },
+  amount: {
+    fontSize: 16,
+    fontWeight: '800',
+    letterSpacing: -0.5,
+  },
+});

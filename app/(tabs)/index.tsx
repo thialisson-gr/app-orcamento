@@ -1,6 +1,6 @@
 // app/(tabs)/index.tsx
-import { router } from 'expo-router'; // 👈 Importado o router para a navegação da edição
-import React, { useState } from 'react';
+import { router } from 'expo-router';
+import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, Text, View } from 'react-native';
 import { BalanceSummaryCard } from '../../components/BalanceSummaryCard';
 import { JointExpensesCard } from '../../components/JointExpensesCard';
@@ -12,6 +12,7 @@ import { useIdentity } from '../../hooks/useIdentity';
 import { useTheme } from '../../hooks/useTheme';
 import { useTransactions } from '../../hooks/useTransactions';
 import { deletarTransacaoDoFirebase } from '../../services/firebase/firestore';
+import { registrarTokenParaNotificacoes } from '../../services/notifications';
 
 const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
@@ -20,6 +21,12 @@ export default function DashboardScreen() {
   const { contas, loadingContas } = useAccounts();
   const { colors } = useTheme(); 
   const { perfil } = useIdentity(); 
+
+  useEffect(() => {
+    if (perfil) {
+      registrarTokenParaNotificacoes(perfil as 'EU' | 'RAY');
+    }
+  }, [perfil]);
 
   const [dataFiltro, setDataFiltro] = useState(new Date());
   const mesAtual = dataFiltro.getMonth();
@@ -93,7 +100,6 @@ export default function DashboardScreen() {
   transacoesRecentes.sort((a, b) => new Date(b.dateParaExibir).getTime() - new Date(a.dateParaExibir).getTime());
   const ultimasTransacoes = transacoesRecentes.slice(0, 15);
 
-  // 👇 O NOVO MENU SEGURO DE OPÇÕES
   const handleOpcoesRecentes = (item: any) => {
     const isRecorrente = item.isInstallment || item.isFixed;
     const parentId = item.isInstallment ? item.installmentDetails?.parentId : item.fixedDetails?.parentId;
@@ -121,29 +127,25 @@ export default function DashboardScreen() {
     <View style={[{ flex: 1 }, { backgroundColor: colors.background }]}>
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 110 }} showsVerticalScrollIndicator={false}>
         
-        {/* CABEÇALHO */}
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, marginTop: 40 }}>
           <View style={{ flex: 1, paddingRight: 10 }}>
             <Text style={{ fontSize: 24, fontWeight: 'bold', color: colors.text }}>Olá!</Text>
             <Text style={{ fontSize: 14, color: colors.subText, marginTop: 2, fontWeight: '500' }}>Seu resumo financeiro</Text>
           </View>
-          {/* SELETOR DE MÊS (PÍLULA) */}
           <MonthSelector 
-                    mesFormatado={mesFormatado} 
-                    onPrev={irMesAnterior} 
-                    onNext={irProximoMes} 
+            mesFormatado={mesFormatado} 
+            onPrev={irMesAnterior} 
+            onNext={irProximoMes} 
           />
         </View>
 
-        {/* CARTÃO DE SALDO PRINCIPAL */}
         <BalanceSummaryCard 
           saldoRestante={seuSaldoRestante} 
           porcentagemGasta={porcentagemGasta} 
           receitaTotal={suaReceitaTotal} 
           despesasTotais={suasDespesasTotais} 
         />
-               
-        {/* CARTÃO DE DESPESAS CONJUNTAS */}
+                
         <JointExpensesCard 
           total={totalDespesasConjuntas} 
           minhaParte={suaParteConjunta} 
@@ -151,10 +153,8 @@ export default function DashboardScreen() {
           parteParceiro={parteDoOutroConjunta} 
         />
 
-        {/* MINI CARDS (A RECEBER E INDIVIDUAL) */}
         <MiniStatsCards aReceber={aReceberTerceiros} individual={seusGastosIndividuais} />
 
-        {/* LISTA RECENTES (COMPACTO HORIZONTAL MELHORADO) */}
         <View>
           <Text style={{ fontSize: 18, fontWeight: 'bold', color: colors.text, marginBottom: 16, marginLeft: 4 }}>Atividades Recentes</Text>
             {ultimasTransacoes.length === 0 ? (

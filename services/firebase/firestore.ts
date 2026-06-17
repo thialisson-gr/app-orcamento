@@ -35,7 +35,7 @@ export interface SalvarContaProps {
   dono?: "EU" | "RAY";
   porcentagemEu: number;
   porcentagemRay: number;
-  visivelParaParceiro?: boolean; // 👈 Adicionado aqui
+  visivelParaParceiro?: boolean;
 }
 
 const avancarMeses = (dataBase: Date, mesesParaAvancar: number) => {
@@ -142,6 +142,7 @@ export async function salvarTransacaoNoFirebase(dados: SalvarTransacaoProps) {
     await addDoc(collection(db, "transacoes"), novaTransacao);
     return { sucesso: true };
   } catch (erro) {
+    console.error("Erro em salvarTransacaoNoFirebase:", erro);
     return { sucesso: false, erro };
   }
 }
@@ -153,18 +154,18 @@ export async function salvarContaNoFirebase(dados: SalvarContaProps) {
       tipo: dados.tipo,
       dono: dados.dono || null,
       splitRule: { me: dados.porcentagemEu, spouse: dados.porcentagemRay },
-      visivelParaParceiro: dados.visivelParaParceiro ?? true, // 👈 Se for Common, salva como true por segurança
+      visivelParaParceiro: dados.visivelParaParceiro ?? true,
       createdAt: new Date().toISOString(),
       userId: auth.currentUser?.uid,
     };
     await addDoc(collection(db, "contas"), novaConta);
     return { sucesso: true };
   } catch (erro) {
+    console.error("Erro em salvarContaNoFirebase:", erro);
     return { sucesso: false, erro };
   }
 }
 
-// 👇 MÁGICA 1: Salva a data exata quando clica no CHECK
 export async function alternarStatusPagamento(id: string, statusAtual: boolean) {
   try {
     const docRef = doc(db, "transacoes", id);
@@ -174,12 +175,12 @@ export async function alternarStatusPagamento(id: string, statusAtual: boolean) 
       paidAt: novoStatus ? new Date().toISOString() : null 
     });
     return true;
-  } catch {
+  } catch (erro) {
+    console.error("Erro em alternarStatusPagamento:", erro);
     return false;
   }
 }
 
-// 👇 MÁGICA 2: Salva a data exata quando clica em PAGAR FATURA
 export async function pagarFaturaCompleta(transacoesIds: string[]) {
   try {
     const batch = writeBatch(db);
@@ -193,7 +194,8 @@ export async function pagarFaturaCompleta(transacoesIds: string[]) {
     });
     await batch.commit();
     return true;
-  } catch {
+  } catch (erro) {
+    console.error("Erro em pagarFaturaCompleta:", erro);
     return false;
   }
 }
@@ -203,7 +205,8 @@ export async function deletarTransacaoDoFirebase(id: string) {
     const docRef = doc(db, "transacoes", id);
     await deleteDoc(docRef);
     return true;
-  } catch {
+  } catch (erro) {
+    console.error("Erro em deletarTransacaoDoFirebase:", erro);
     return false;
   }
 }
@@ -213,7 +216,8 @@ export async function deletarContaNoFirebase(id: string) {
     const docRef = doc(db, "contas", id);
     await deleteDoc(docRef);
     return true;
-  } catch {
+  } catch (erro) {
+    console.error("Erro em deletarContaNoFirebase:", erro);
     return false;
   }
 }
@@ -239,6 +243,7 @@ export async function atualizarContaNoFirebase(id: string, nomeAntigo: string, d
     await batch.commit();
     return { sucesso: true };
   } catch (erro) {
+    console.error("Erro em atualizarContaNoFirebase:", erro);
     return { sucesso: false, erro };
   }
 }
@@ -277,8 +282,9 @@ export const atualizarTransacaoNoFirebase = async (id: string, dados: any) => {
       thirdPartyName: dados.nomeTerceiro || '',
     });
     return { sucesso: true };
-  } catch (error) {
-    return { sucesso: false, erro: error };
+  } catch (erro) {
+    console.error("Erro em atualizarTransacaoNoFirebase:", erro);
+    return { sucesso: false, erro };
   }
 };
 
@@ -290,7 +296,8 @@ export async function deletarMultiplasTransacoes(ids: string[]) {
     });
     await batch.commit();
     return true;
-  } catch {
+  } catch (erro) {
+    console.error("Erro em deletarMultiplasTransacoes:", erro);
     return false;
   }
 }
@@ -303,11 +310,9 @@ export async function atualizarTransacoesRecorrentes(idAtual: string, futurasIds
       : dados.valorFormatado;
 
     const [dia, mes, ano] = dados.dataPagamento.split('/');
-    // 1. Criamos a data âncora verdadeira baseada no que o usuário escolheu
     const dataBasePagamento = new Date(Number(ano), Number(mes) - 1, Number(dia), 12, 0, 0);
     const dataIsoAtual = dataBasePagamento.toISOString();
 
-    // 2. Atualiza a transação ATUAL
     batch.update(doc(db, 'transacoes', idAtual), {
       type: dados.tipo,
       amount: valorNumerico,
@@ -315,15 +320,12 @@ export async function atualizarTransacoesRecorrentes(idAtual: string, futurasIds
       accountId: dados.contaSelecionada,
       tags: [dados.tagSelecionada],
       paymentDate: dataIsoAtual,
-      date: dataIsoAtual, // Garante que as duas datas fiquem sincronizadas
+      date: dataIsoAtual,
       isForThirdParty: dados.isTerceiro || false,
       thirdPartyName: dados.nomeTerceiro || '',
     });
 
-    // 3. Atualiza as transações FUTURAS recalculando a data
     futurasIds.forEach((idFutura, index) => {
-      
-      // MÁGICA AQUI: Avança +1 mês para a primeira futura, +2 para a segunda...
       const dataParcelaFutura = avancarMeses(dataBasePagamento, index + 1);
 
       batch.update(doc(db, 'transacoes', idFutura), {
@@ -340,7 +342,8 @@ export async function atualizarTransacoesRecorrentes(idAtual: string, futurasIds
 
     await batch.commit();
     return { sucesso: true };
-  } catch (error) {
-    return { sucesso: false, erro: error };
+  } catch (erro) {
+    console.error("Erro em atualizarTransacoesRecorrentes:", erro);
+    return { sucesso: false, erro };
   }
 }
