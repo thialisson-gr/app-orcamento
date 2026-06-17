@@ -21,12 +21,13 @@ export function useAccounts() {
       querySnapshot.forEach((doc) => {
         const data = doc.data();
 
-        // 🛡️ NOVA REGRA DE NEGÓCIOS BLINDADA:
-        // Se a conta for INDIVIDUAL, TERCEIROS ou RECEITA, exige que seja o dono!
+        // 🛡️ REGRA DE NEGÓCIOS DE PRIVACIDADE FLEXÍVEL:
         if (data.tipo === "INDIVIDUAL" || data.tipo === "TERCEIROS" || data.tipo === "RECEITA") {
           
-          // O perfil ("EU" ou "RAY") precisa bater com o dono da tabela
-          if (data.dono === perfil) {
+          // A conta entra na lista se: 
+          // 1. O usuário logado é o dono dela OR
+          // 2. O dono marcou explicitamente que ela é visível para o parceiro
+          if (data.dono === perfil || data.visivelParaParceiro === true) {
             listaContas.push({ id: doc.id, ...data });
           }
           

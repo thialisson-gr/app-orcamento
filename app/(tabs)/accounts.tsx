@@ -1,4 +1,5 @@
 // app/(tabs)/accounts.tsx
+import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, Text, TouchableOpacity, View } from 'react-native';
@@ -29,6 +30,7 @@ export default function AccountsScreen() {
 
   const [dataFiltro, setDataFiltro] = useState(new Date());
   const [filtroAtivo, setFiltroAtivo] = useState('TODAS');
+  const [mostrarInativas, setMostrarInativas] = useState(false);
 
   const mesAtual = dataFiltro.getMonth();
   const anoAtual = dataFiltro.getFullYear();
@@ -38,6 +40,18 @@ export default function AccountsScreen() {
   const irProximoMes = () => setDataFiltro(new Date(anoAtual, mesAtual + 1, 1));
 
   const handleOpcoesConta = (conta: any) => {
+    // 👇 O CADEADO DE SEGURANÇA (MODO LEITURA)
+    const isModoLeitura = 
+      conta.tipo !== 'COMUM' && 
+      conta.tipo !== 'RECEITA' && 
+      conta.dono && 
+      conta.dono !== perfil;
+
+    // Se estiver em modo leitura, avisa que não tem permissão e corta a função
+    if (isModoLeitura) {
+      return Alert.alert('Acesso Negado', 'Você não tem permissão para editar ou excluir a tabela do seu parceiro.');
+    }
+
     Alert.alert('Opções', `O que deseja fazer com a tabela "${conta.nome}"?`, [
       { text: 'Cancelar', style: 'cancel' },
       { 
@@ -53,7 +67,31 @@ export default function AccountsScreen() {
           }
         })
       },
-      { text: 'Excluir', style: 'destructive', onPress: () => deletarContaNoFirebase(conta.id) }
+      { 
+        text: 'Excluir', 
+        style: 'destructive', 
+        onPress: () => {
+          // 👇 TRAVA DE SEGURANÇA: Verifica se há transações não pagas / parcelas a vencer nesta tabela
+          const temPendencias = transacoes.some(t => t.accountId === conta.nome && !t.isPaid);
+
+          if (temPendencias) {
+            return Alert.alert(
+              'Ação Bloqueada', 
+              'Não é possível excluir esta tabela pois ela possui transações ou parcelas a vencer. Conclua ou elimine as pendências primeiro.'
+            );
+          }
+
+          // Se a tabela estiver zerada ou apenas com histórico pago, pede dupla confirmação
+          Alert.alert(
+            'Confirmar Exclusão',
+            `Tem certeza que deseja eliminar a tabela "${conta.nome}" definitivamente?`,
+            [
+              { text: 'Cancelar', style: 'cancel' },
+              { text: 'Sim, Excluir', style: 'destructive', onPress: () => deletarContaNoFirebase(conta.id) }
+            ]
+          );
+        } 
+      }
     ]);
   };
   
@@ -61,10 +99,30 @@ export default function AccountsScreen() {
 
   if (loadingContas || loading) return <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background }}><ActivityIndicator size="large" color={colors.accent} /></View>;
 
-  let contasExibidas = contas;
-  if (filtroAtivo !== 'TODAS') {
-    contasExibidas = contas.filter(c => c.tipo === filtroAtivo);
-  }
+  // 1. Descobrir quais tabelas têm PELO MENOS UMA transação neste mês específico
+  const contasAtivasNesteMes = new Set(
+    transacoes
+      .filter((t) => {
+        const d = new Date(t.paymentDate || t.date);
+        return d.getMonth() === mesAtual && d.getFullYear() === anoAtual;
+      })
+      .map((t) => t.accountId)
+  );
+
+  // 2. Filtrar a lista de exibição
+  let contasExibidas = contas.filter((c) => {
+    // Se a tabela NÃO tem movimento neste mês e o botão de mostrar inativas está desligado, esconde ela!
+    if (!contasAtivasNesteMes.has(c.nome) && !mostrarInativas) {
+      return false;
+    }
+
+    // Mantém o filtro de abas (Todas, Receitas, Comuns...) funcionando
+    if (filtroAtivo !== 'TODAS') {
+      return c.tipo === filtroAtivo;
+    }
+    
+    return true;
+  });
 
   const ordemTipo: Record<string, number> = { 'RECEITA': 1, 'COMUM': 2, 'INDIVIDUAL': 3, 'TERCEIROS': 4 };
   contasExibidas.sort((a, b) => ordemTipo[a.tipo] - ordemTipo[b.tipo]);
@@ -75,9 +133,9 @@ export default function AccountsScreen() {
       
       {/* SELETOR DE MÊS */}
       <MonthSelector 
-                mesFormatado={mesFormatado} 
-                onPrev={irMesAnterior} 
-                onNext={irProximoMes} 
+        mesFormatado={mesFormatado} 
+        onPrev={irMesAnterior} 
+        onNext={irProximoMes} 
       />
 
       {/* FILTROS */}
@@ -93,6 +151,20 @@ export default function AccountsScreen() {
             </TouchableOpacity>
           ))}
         </ScrollView>
+      </View>
+
+      {/* NOVO BOTÃO: MOSTRAR/OCULTAR INATIVAS */}
+      <View style={{ flexDirection: 'row', justifyContent: 'flex-end', paddingHorizontal: 20, marginBottom: 10 }}>
+        <TouchableOpacity 
+          onPress={() => setMostrarInativas(!mostrarInativas)} 
+          style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 4 }}
+          activeOpacity={0.7}
+        >
+          <Ionicons name={mostrarInativas ? "eye-off-outline" : "eye-outline"} size={16} color={colors.subText} />
+          <Text style={{ fontSize: 13, color: colors.subText, fontWeight: '500' }}>
+            {mostrarInativas ? "Ocultar tabelas inativas" : "Mostrar tabelas inativas"}
+          </Text>
+        </TouchableOpacity>
       </View>
 
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 110 }} showsVerticalScrollIndicator={false}>

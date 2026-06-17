@@ -16,13 +16,13 @@ export default function AddTransactionModal() {
   const params = useLocalSearchParams();
   const contaPreSelecionada = params.contaPreSelecionada as string;
   
-  const { contas } = useAccounts();
+  const { contas, loadingContas } = useAccounts();
   const { colors, isDarkMode } = useTheme(); 
   
   const [tipo, setTipo] = useState<'DESPESA' | 'RECEITA'>('DESPESA');
   const [valor, setValor] = useState('');
   const [descricao, setDescricao] = useState('');
-  const [dataAlvo, setDataAlvo] = useState(new Date());
+  const [dataAlvo, setDataAlvo] = useState<Date | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
   
   // Modal de Tabelas
@@ -40,13 +40,36 @@ export default function AddTransactionModal() {
   const [isLoading, setIsLoading] = useState(false);
   const jaInicializou = useRef(false);
 
+  // BLOQUEIO: Não permite abrir se não houver tabelas
+  useEffect(() => {
+    // A correção: adicionamos !loadingContas para aguardar o Firebase
+    if (!loadingContas && contas.length === 0) {
+      Alert.alert(
+        'Nenhuma Tabela',
+        'Você precisa criar uma tabela antes de registrar movimentações.',
+        [
+          { text: 'Voltar', style: 'cancel', onPress: () => router.back() },
+          { text: 'Criar Tabela', onPress: () => router.replace('/add-account') }
+        ]
+      );
+    }
+  }, [contas, loadingContas]); // 👈 A dependência essencial foi adicionada
+
+ // INICIALIZAÇÃO E PRÉ-SELEÇÃO INTELIGENTE
   useEffect(() => { 
     if (!jaInicializou.current && contas.length > 0) {
       if (contaPreSelecionada) {
         setContaSelecionada(contaPreSelecionada);
-      } else {
-        const contasFiltradas = contas.filter(c => c.tipo !== 'RECEITA');
-        setContaSelecionada(contasFiltradas.length > 0 ? contasFiltradas[0].nome : contas[0].nome); 
+        
+        // 👇 A MÁGICA ACONTECE AQUI:
+        // Buscamos a conta pré-selecionada para descobrir o tipo dela
+        const contaAlvo = contas.find(c => c.nome === contaPreSelecionada);
+        
+        // Se ela for uma conta de Receita, mudamos a chave do formulário automaticamente!
+        if (contaAlvo && contaAlvo.tipo === 'RECEITA') {
+          setTipo('RECEITA');
+          setTagSelecionada(TAGS_RECEITA[0]); // Já ajusta as tags para as de receita
+        }
       }
       jaInicializou.current = true;
     }
@@ -59,13 +82,24 @@ export default function AddTransactionModal() {
   };
 
   const onChangeDate = (event: any, selectedDate?: Date) => {
+    // 1. Fecha o calendário no Android independentemente da ação
     if (Platform.OS === 'android') setShowDatePicker(false);
-    if (selectedDate) setDataAlvo(selectedDate);
+    
+    // 2. Se o usuário clicou em "Cancelar" ou tocou fora do modal, interrompe aqui!
+    if (event.type === 'dismissed') {
+      return; 
+    }
+
+    // 3. Se ele realmente confirmou uma data, aí sim nós salvamos
+    if (selectedDate) {
+      setDataAlvo(selectedDate);
+    }
   };
 
   const handleSalvar = async () => {
-    if (!valor || !descricao || !contaSelecionada) return Alert.alert('Atenção', 'Preencha o valor, a tabela e a descrição.');
-    setIsLoading(true);
+    if (!valor || !descricao || !contaSelecionada || !dataAlvo) {
+      return Alert.alert('Atenção', 'Preencha o valor, a descrição, a tabela e a data.');
+    }
     
     const tagFinal = tagSelecionada.includes('Outros') && categoriaCustomizada ? categoriaCustomizada : tagSelecionada;
     const isParcelado = modoRepeticao === 'PARCELADA';
@@ -111,6 +145,7 @@ export default function AddTransactionModal() {
             setTipo(novoTipo);
             setTagSelecionada(novoTipo === 'DESPESA' ? TAGS_DESPESA[0] : TAGS_RECEITA[0]);
             setModoRepeticao('UNICA');
+            setContaSelecionada(''); // 👈 Limpa a tabela ao mudar o fluxo
           }} 
         />
 
@@ -168,11 +203,26 @@ export default function AddTransactionModal() {
         
         <View style={styles.formGroup}>
           <Text style={[styles.label, { color: colors.text }]}>Data de Pagamento</Text>
-          <TouchableOpacity style={[styles.input, { backgroundColor: isDarkMode ? '#0f172a' : '#f8fafc', borderColor: isDarkMode ? '#334155' : '#e2e8f0', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]} onPress={() => setShowDatePicker(true)} activeOpacity={0.7}>
-            <Text style={{ fontSize: 16, color: colors.text, fontWeight: '500' }}>{dataAlvo.toLocaleDateString('pt-BR')}</Text>
+          <TouchableOpacity 
+            style={[styles.input, { backgroundColor: isDarkMode ? '#0f172a' : '#f8fafc', borderColor: isDarkMode ? '#334155' : '#e2e8f0', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]} 
+            onPress={() => setShowDatePicker(true)} 
+            activeOpacity={0.7}
+          >
+            {/* Se dataAlvo for null, mostra o texto placeholder em cinza. Se tiver data, mostra a data formatada. */}
+            <Text style={{ fontSize: 16, color: dataAlvo ? colors.text : colors.subText, fontWeight: dataAlvo ? '500' : 'normal' }}>
+              {dataAlvo ? dataAlvo.toLocaleDateString('pt-BR') : "Selecione uma data..."}
+            </Text>
             <Ionicons name="calendar-outline" size={20} color={colors.subText} />
           </TouchableOpacity>
-          {showDatePicker && <DateTimePicker themeVariant={isDarkMode ? "dark" : "light"} value={dataAlvo} mode="date" display="default" onChange={onChangeDate} />}
+          {showDatePicker && (
+            <DateTimePicker 
+              themeVariant={isDarkMode ? "dark" : "light"} 
+              value={dataAlvo || new Date()} 
+              mode="date" 
+              display="default" 
+              onChange={onChangeDate} 
+            />
+          )}
         </View>
 
         {/* FORMA DE PAGAMENTO / REPETIÇÃO (NOVO FORMATO SQUIRCLE) */}

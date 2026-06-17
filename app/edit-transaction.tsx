@@ -108,12 +108,17 @@ export default function EditTransactionScreen() {
             setIsLoading(true);
             const dataReferencia = new Date(params.dataOriginal as string).getTime();
             
-            const futurasIds = transacoes.filter(t => {
+            // Filtrar e ORDENAR as futuras para garantir a sequência correta dos meses
+            const futurasOrdenadas = transacoes.filter(t => {
               if (t.id === id) return false; 
               const tParentId = t.isInstallment ? t.installmentDetails?.parentId : t.fixedDetails?.parentId;
               const tData = new Date(t.paymentDate || t.date).getTime();
               return tParentId === parentId && tData >= dataReferencia;
-            }).map(t => t.id);
+            }).sort((a, b) => {
+              return new Date(a.paymentDate || a.date).getTime() - new Date(b.paymentDate || b.date).getTime();
+            });
+
+            const futurasIds = futurasOrdenadas.map(t => t.id);
 
             const res = await atualizarTransacoesRecorrentes(id, futurasIds, {
               tipo, valorFormatado: valor, descricao, contaSelecionada, tagSelecionada: tagFinal, isTerceiro: tipo === 'DESPESA' ? isTerceiro : false, nomeTerceiro, dataPagamento: dataAlvo.toLocaleDateString('pt-BR')

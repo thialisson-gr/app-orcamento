@@ -35,6 +35,7 @@ export interface SalvarContaProps {
   dono?: "EU" | "RAY";
   porcentagemEu: number;
   porcentagemRay: number;
+  visivelParaParceiro?: boolean; // 👈 Adicionado aqui
 }
 
 const avancarMeses = (dataBase: Date, mesesParaAvancar: number) => {
@@ -152,6 +153,7 @@ export async function salvarContaNoFirebase(dados: SalvarContaProps) {
       tipo: dados.tipo,
       dono: dados.dono || null,
       splitRule: { me: dados.porcentagemEu, spouse: dados.porcentagemRay },
+      visivelParaParceiro: dados.visivelParaParceiro ?? true, // 👈 Se for Common, salva como true por segurança
       createdAt: new Date().toISOString(),
       userId: auth.currentUser?.uid,
     };
@@ -172,7 +174,7 @@ export async function alternarStatusPagamento(id: string, statusAtual: boolean) 
       paidAt: novoStatus ? new Date().toISOString() : null 
     });
     return true;
-  } catch (erro) {
+  } catch {
     return false;
   }
 }
@@ -191,7 +193,7 @@ export async function pagarFaturaCompleta(transacoesIds: string[]) {
     });
     await batch.commit();
     return true;
-  } catch (erro) {
+  } catch {
     return false;
   }
 }
@@ -201,7 +203,7 @@ export async function deletarTransacaoDoFirebase(id: string) {
     const docRef = doc(db, "transacoes", id);
     await deleteDoc(docRef);
     return true;
-  } catch (erro) {
+  } catch {
     return false;
   }
 }
@@ -211,7 +213,7 @@ export async function deletarContaNoFirebase(id: string) {
     const docRef = doc(db, "contas", id);
     await deleteDoc(docRef);
     return true;
-  } catch (erro) {
+  } catch {
     return false;
   }
 }
@@ -225,6 +227,7 @@ export async function atualizarContaNoFirebase(id: string, nomeAntigo: string, d
       tipo: dados.tipo,
       dono: dados.dono || null,
       splitRule: { me: dados.porcentagemEu, spouse: dados.porcentagemRay },
+      visivelParaParceiro: dados.visivelParaParceiro ?? true,
     });
     if (nomeAntigo !== dados.nome) {
       const q = query(collection(db, "transacoes"), where("accountId", "==", nomeAntigo));
@@ -287,7 +290,7 @@ export async function deletarMultiplasTransacoes(ids: string[]) {
     });
     await batch.commit();
     return true;
-  } catch (erro) {
+  } catch {
     return false;
   }
 }
@@ -300,9 +303,11 @@ export async function atualizarTransacoesRecorrentes(idAtual: string, futurasIds
       : dados.valorFormatado;
 
     const [dia, mes, ano] = dados.dataPagamento.split('/');
-    const dataIsoAtual = new Date(`${ano}-${mes}-${dia}T12:00:00`).toISOString();
+    // 1. Criamos a data âncora verdadeira baseada no que o usuário escolheu
+    const dataBasePagamento = new Date(Number(ano), Number(mes) - 1, Number(dia), 12, 0, 0);
+    const dataIsoAtual = dataBasePagamento.toISOString();
 
-    // 1. Atualiza a transação ATUAL por completo (incluindo descrição e data modificada)
+    // 2. Atualiza a transação ATUAL
     batch.update(doc(db, 'transacoes', idAtual), {
       type: dados.tipo,
       amount: valorNumerico,
@@ -310,13 +315,17 @@ export async function atualizarTransacoesRecorrentes(idAtual: string, futurasIds
       accountId: dados.contaSelecionada,
       tags: [dados.tagSelecionada],
       paymentDate: dataIsoAtual,
+      date: dataIsoAtual, // Garante que as duas datas fiquem sincronizadas
       isForThirdParty: dados.isTerceiro || false,
       thirdPartyName: dados.nomeTerceiro || '',
     });
 
-    // 2. Atualiza as transações FUTURAS (Apenas valores, tags e conta)
-    // Mantemos as datas originais e as descrições originais para não apagar a contagem (Ex: 2/10)
-    futurasIds.forEach(idFutura => {
+    // 3. Atualiza as transações FUTURAS recalculando a data
+    futurasIds.forEach((idFutura, index) => {
+      
+      // MÁGICA AQUI: Avança +1 mês para a primeira futura, +2 para a segunda...
+      const dataParcelaFutura = avancarMeses(dataBasePagamento, index + 1);
+
       batch.update(doc(db, 'transacoes', idFutura), {
         type: dados.tipo,
         amount: valorNumerico,
@@ -324,6 +333,8 @@ export async function atualizarTransacoesRecorrentes(idAtual: string, futurasIds
         tags: [dados.tagSelecionada],
         isForThirdParty: dados.isTerceiro || false,
         thirdPartyName: dados.nomeTerceiro || '',
+        paymentDate: dataParcelaFutura.toISOString(),
+        date: dataParcelaFutura.toISOString(),
       });
     });
 

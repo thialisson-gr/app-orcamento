@@ -2,7 +2,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import React, { useState } from 'react';
-import { ActivityIndicator, Alert, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Platform, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { AccountSplitSlider } from '../components/AccountSplitSlider';
 import { useIdentity } from '../hooks/useIdentity';
 import { useTheme } from '../hooks/useTheme';
@@ -22,6 +22,7 @@ export default function EditAccountScreen() {
   const [dono, setDono] = useState<'EU' | 'RAY'>((params.donoOriginal as any) || (perfil || 'EU'));
   // Transformamos em número para o Slider funcionar
   const [porcentagemEu, setPorcentagemEu] = useState(parseInt(params.porcentagemOriginal as string) || 50);
+  const [visivelParaParceiro, setVisivelParaParceiro] = useState(params.visivelOriginal !== 'false');
   const [isLoading, setIsLoading] = useState(false);
 
   const nomeDoParceiro = perfil === 'RAY' ? 'Thialisson' : 'Rayane';
@@ -58,6 +59,7 @@ export default function EditAccountScreen() {
       dono: donoFinal, 
       porcentagemEu: fluxo === 'RECEITA' ? 100 : (tipo === 'COMUM' ? percEu : (tipo === 'INDIVIDUAL' && dono === 'EU' ? 100 : 0)), 
       porcentagemRay: fluxo === 'RECEITA' ? 0 : (tipo === 'COMUM' ? percRay : (tipo === 'INDIVIDUAL' && dono === 'RAY' ? 100 : 0)),
+      visivelParaParceiro: (tipo === 'INDIVIDUAL' || tipo === 'TERCEIROS') ? visivelParaParceiro : true,
     });
     setIsLoading(false);
     if (resultado.sucesso) router.back(); else Alert.alert('Erro', 'Não foi possível atualizar a tabela.');
@@ -94,6 +96,24 @@ export default function EditAccountScreen() {
                 <TouchableOpacity style={[styles.chip, { backgroundColor: isDarkMode ? '#1e293b' : '#f8fafc', borderColor: isDarkMode ? '#334155' : '#e2e8f0' }, tipo === 'TERCEIROS' && { backgroundColor: colors.accentLight, borderColor: colors.accent }]} onPress={() => setTipo('TERCEIROS')}><Text style={[styles.chipText, { color: isDarkMode ? '#cbd5e1' : '#64748b' }, tipo === 'TERCEIROS' && { color: colors.accent, fontWeight: 'bold' }]}>Terceiros</Text></TouchableOpacity>
               </View>
             </View>
+
+            {/* INTERRUPTOR DE PRIVACIDADE */}
+            {(tipo === 'INDIVIDUAL' || tipo === 'TERCEIROS') && (
+              <View style={[styles.formGroup, { backgroundColor: isDarkMode ? '#1e293b' : '#f8fafc', padding: 16, borderRadius: 16, borderWidth: 1, borderColor: isDarkMode ? '#334155' : '#e2e8f0', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}>
+                <View style={{ flex: 1, paddingRight: 10 }}>
+                  <Text style={{ fontSize: 14, fontWeight: 'bold', color: colors.text }}>Tabela Compartilhada?</Text>
+                  <Text style={{ fontSize: 12, color: colors.subText, marginTop: 4 }}>
+                    Permitir que {nomeDoParceiro} veja esta tabela e os gastos dela.
+                  </Text>
+                </View>
+                <Switch 
+                  value={visivelParaParceiro} 
+                  onValueChange={setVisivelParaParceiro} 
+                  trackColor={{ false: isDarkMode ? '#475569' : '#cbd5e1', true: colors.accentLight }} 
+                  thumbColor={visivelParaParceiro ? colors.accent : '#f8fafc'} 
+                />
+              </View>
+            )}
 
             {tipo === 'COMUM' && (
               <AccountSplitSlider 

@@ -8,6 +8,7 @@ import { AccountSummaryCard } from '../../components/AccountSummaryCard';
 import { AccountTransactionItem } from '../../components/AccountTransactionItem';
 import { MonthSelector } from '../../components/MonthSelector';
 import { useAccounts } from '../../hooks/useAccounts';
+import { useIdentity } from '../../hooks/useIdentity';
 import { useTheme } from '../../hooks/useTheme';
 import { useTransactions } from '../../hooks/useTransactions';
 import { alternarStatusPagamento, deletarMultiplasTransacoes, deletarTransacaoDoFirebase, pagarFaturaCompleta } from '../../services/firebase/firestore';
@@ -21,6 +22,7 @@ export default function AccountDetailScreen() {
 
   const { transacoes, loading: loadingTransacoes } = useTransactions();
   const { contas, loadingContas } = useAccounts();
+  const { perfil } = useIdentity();
 
   const [dataFiltro, setDataFiltro] = useState(new Date());
   const mesAtual = dataFiltro.getMonth();
@@ -42,6 +44,13 @@ export default function AccountDetailScreen() {
   const contaAtual = contas.find(c => c.nome === nomeConta);
   const isReceita = contaAtual?.tipo === 'RECEITA';
 
+  // 👇 MÁGICA DO CADEADO: É Modo Leitura se não for uma conta COMUM e o logado não for o dono
+  const isModoLeitura = 
+    contaAtual?.tipo !== 'COMUM' && 
+    contaAtual?.tipo !== 'RECEITA' && 
+    contaAtual?.dono && 
+    contaAtual?.dono !== perfil;
+
   let gradColors = colors.gradient;
   let corPrincipal = colors.accent;
   
@@ -62,28 +71,42 @@ export default function AccountDetailScreen() {
     return dataPag.getMonth() === mesAtual && dataPag.getFullYear() === anoAtual;
   });
 
-  const ordenarTransacoes = (a: any, b: any) => {
-    const aIsRecorrente = a.isInstallment || a.isFixed ? 1 : 0;
-    const bIsRecorrente = b.isInstallment || b.isFixed ? 1 : 0;
+  // 1. Separar pendentes e pagas
+  const pendentes = transacoesDoMes.filter(t => !t.isPaid);
+  const pagas = transacoesDoMes.filter(t => t.isPaid);
 
-    if (aIsRecorrente !== bIsRecorrente) {
-      return bIsRecorrente - aIsRecorrente; 
-    }
-
-    const dataA = new Date(a.paymentDate || a.date).getTime();
-    const dataB = new Date(b.paymentDate || b.date).getTime();
+  // 2. Lógica para Parceladas: as que estão mais perto do fim ficam no topo
+  const sortParceladas = (a: any, b: any) => {
+    const restanteA = (a.installmentDetails?.total || 0) - (a.installmentDetails?.current || 0);
+    const restanteB = (b.installmentDetails?.total || 0) - (b.installmentDetails?.current || 0);
     
-    return dataB - dataA;
+    if (restanteA !== restanteB) {
+      return restanteA - restanteB; 
+    }
+    return new Date(b.paymentDate || b.date).getTime() - new Date(a.paymentDate || a.date).getTime();
   };
 
-  const transacoesPendentes = transacoesDoMes.filter(t => !t.isPaid).sort(ordenarTransacoes);
-  const transacoesPagas = transacoesDoMes.filter(t => t.isPaid).sort(ordenarTransacoes);
+  // 3. Lógica para Não-Parceladas: mais recentes no topo
+  const sortNaoParceladas = (a: any, b: any) => {
+    return new Date(b.paymentDate || b.date).getTime() - new Date(a.paymentDate || a.date).getTime();
+  };
+
+  // 4. Aplicar a divisão e ordenação
+  const pendentesParceladas = pendentes.filter(t => t.isInstallment).sort(sortParceladas);
+  const pendentesOutras = pendentes.filter(t => !t.isInstallment).sort(sortNaoParceladas);
+
+  const pagasParceladas = pagas.filter(t => t.isInstallment).sort(sortParceladas);
+  const pagasOutras = pagas.filter(t => !t.isInstallment).sort(sortNaoParceladas);
 
   const totalGeral = transacoesDoMes.reduce((acc, t) => acc + t.amount, 0);
-  const totalConcluido = transacoesPagas.reduce((acc, t) => acc + t.amount, 0);
-  const totalPendente = transacoesPendentes.reduce((acc, t) => acc + t.amount, 0);
+  const totalConcluido = pagas.reduce((acc, t) => acc + t.amount, 0);
+  const totalPendente = pendentes.reduce((acc, t) => acc + t.amount, 0);
 
   const handleToggleCheck = async (transacaoId: string, statusAtual: boolean) => {
+    if (isModoLeitura) {
+      return Alert.alert('Modo Leitura', 'Você só pode visualizar os detalhes desta tabela.');
+    }
+
     if (statusAtual) {
       Alert.alert(
         'Desmarcar Pagamento',
@@ -99,15 +122,19 @@ export default function AccountDetailScreen() {
   };
 
   const handleConcluirTudo = async () => {
-    if (transacoesPendentes.length === 0) return;
+    if (pendentes.length === 0) return;
     Alert.alert(
       isReceita ? 'Receber Tudo' : 'Pagar Fatura',
       isReceita ? 'Deseja marcar todas as entradas deste mês como recebidas?' : 'Deseja dar baixa em todas as contas deste mês?',
-      [{ text: 'Cancelar', style: 'cancel' }, { text: 'Sim, confirmar', onPress: async () => await pagarFaturaCompleta(transacoesPendentes.map(t => t.id)) }]
+      [{ text: 'Cancelar', style: 'cancel' }, { text: 'Sim, confirmar', onPress: async () => await pagarFaturaCompleta(pendentes.map(t => t.id)) }]
     );
   };
 
   const handleOpcoesTransacao = (item: any) => {
+    if (isModoLeitura) {
+      return Alert.alert('Modo Leitura', 'Você não tem permissão para editar as transações desta tabela.');
+    }
+    
     const isRecorrente = item.isInstallment || item.isFixed;
     const parentId = item.isInstallment ? item.installmentDetails?.parentId : item.fixedDetails?.parentId;
 
@@ -193,39 +220,52 @@ export default function AccountDetailScreen() {
           corPrincipal={corPrincipal} 
         />
 
-        {/* LISTAS DE TRANSAÇÕES */}
-        {transacoesPendentes.length > 0 && (
+        {/* LISTAS DE TRANSAÇÕES PENDENTES */}
+        {pendentes.length > 0 && (
           <View style={styles.listSection}>
             <Text style={[styles.sectionTitle, { color: colors.subText }]}>Pendentes</Text>
             <View style={[styles.listContainer, { backgroundColor: colors.card, borderColor: isDarkMode ? '#334155' : 'transparent', borderWidth: isDarkMode ? 1 : 0 }]}>
-              {transacoesPendentes.map((item) => (
-                <AccountTransactionItem
-                  key={item.id}
-                  item={item}
-                  isReceita={isReceita}
-                  corPrincipal={corPrincipal}
-                  onToggleCheck={() => handleToggleCheck(item.id, item.isPaid)}
-                  onOptionsPress={() => handleOpcoesTransacao(item)}
-                />
+              
+              {/* Parceladas primeiro */}
+              {pendentesParceladas.map((item) => (
+                <AccountTransactionItem key={item.id} item={item} isReceita={isReceita} corPrincipal={corPrincipal} onToggleCheck={() => handleToggleCheck(item.id, item.isPaid)} onOptionsPress={() => handleOpcoesTransacao(item)} />
               ))}
+
+              {/* O Separador Visual */}
+              {pendentesParceladas.length > 0 && pendentesOutras.length > 0 && (
+                <View style={[styles.separator, { backgroundColor: isDarkMode ? '#334155' : '#e2e8f0' }]} />
+              )}
+
+              {/* Únicas/Fixas a seguir */}
+              {pendentesOutras.map((item) => (
+                <AccountTransactionItem key={item.id} item={item} isReceita={isReceita} corPrincipal={corPrincipal} onToggleCheck={() => handleToggleCheck(item.id, item.isPaid)} onOptionsPress={() => handleOpcoesTransacao(item)} />
+              ))}
+
             </View>
           </View>
         )}
 
-        {transacoesPagas.length > 0 && (
+        {/* LISTAS DE TRANSAÇÕES PAGAS */}
+        {pagas.length > 0 && (
           <View style={styles.listSection}>
             <Text style={[styles.sectionTitle, { color: colors.subText }]}>{isReceita ? 'Recebidos' : 'Pagos'}</Text>
             <View style={[styles.listContainer, { backgroundColor: colors.card, borderColor: isDarkMode ? '#334155' : 'transparent', borderWidth: isDarkMode ? 1 : 0 }]}>
-              {transacoesPagas.map((item) => (
-                <AccountTransactionItem
-                  key={item.id}
-                  item={item}
-                  isReceita={isReceita}
-                  corPrincipal={corPrincipal}
-                  onToggleCheck={() => handleToggleCheck(item.id, item.isPaid)}
-                  onOptionsPress={() => handleOpcoesTransacao(item)}
-                />
+              
+              {/* Parceladas pagas primeiro */}
+              {pagasParceladas.map((item) => (
+                <AccountTransactionItem key={item.id} item={item} isReceita={isReceita} corPrincipal={corPrincipal} onToggleCheck={() => handleToggleCheck(item.id, item.isPaid)} onOptionsPress={() => handleOpcoesTransacao(item)} />
               ))}
+
+              {/* O Separador Visual */}
+              {pagasParceladas.length > 0 && pagasOutras.length > 0 && (
+                <View style={[styles.separator, { backgroundColor: isDarkMode ? '#334155' : '#e2e8f0' }]} />
+              )}
+
+              {/* Únicas/Fixas pagas a seguir */}
+              {pagasOutras.map((item) => (
+                <AccountTransactionItem key={item.id} item={item} isReceita={isReceita} corPrincipal={corPrincipal} onToggleCheck={() => handleToggleCheck(item.id, item.isPaid)} onOptionsPress={() => handleOpcoesTransacao(item)} />
+              ))}
+
             </View>
           </View>
         )}
@@ -241,16 +281,18 @@ export default function AccountDetailScreen() {
       </ScrollView>
 
       {/* BOTÃO FAB FLUTUANTE (SQUIRCLE) */}
-      <TouchableOpacity 
-        style={[styles.fabCompact, { backgroundColor: corPrincipal, bottom: transacoesPendentes.length > 0 ? 100 : 30 }]} 
-        activeOpacity={0.8} 
-        onPress={() => router.push({ pathname: '/add-transaction', params: { contaPreSelecionada: nomeConta } })}
-      >
-        <Ionicons name="add" size={28} color="#fff" />
-      </TouchableOpacity>
+      {!isModoLeitura && (
+        <TouchableOpacity 
+          style={[styles.fabCompact, { backgroundColor: corPrincipal, bottom: pendentes.length > 0 ? 100 : 30 }]} 
+          activeOpacity={0.8} 
+          onPress={() => router.push({ pathname: '/add-transaction', params: { contaPreSelecionada: nomeConta } })}
+        >
+          <Ionicons name="add" size={28} color="#fff" />
+        </TouchableOpacity>
+      )}
 
       {/* BOTÃO PAGAR TUDO NO RODAPÉ */}
-      {transacoesPendentes.length > 0 && (
+      {(!isModoLeitura && pendentes.length > 0) && (
         <View style={[styles.footerSlim, { backgroundColor: isDarkMode ? 'rgba(18,18,20,0.95)' : 'rgba(244,244,245,0.95)' }]}>
           <TouchableOpacity style={[styles.payAllButtonSlim, { backgroundColor: corPrincipal }]} onPress={handleConcluirTudo} activeOpacity={0.8}>
             <Ionicons name="checkmark-done" size={20} color="#fff" />
@@ -277,6 +319,9 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 13, fontWeight: 'bold', marginBottom: 12, marginLeft: 8, textTransform: 'uppercase', letterSpacing: 0.5 },
   listContainer: { borderRadius: 20, paddingHorizontal: 16, overflow: 'hidden', elevation: 1, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 6 },
   
+  // 👇 AQUI ESTÁ O NOVO ESTILO DO SEPARADOR
+  separator: { height: 1, marginHorizontal: 16, marginVertical: 8 },
+
   emptyState: { alignItems: 'center', justifyContent: 'center', paddingVertical: 60 }, 
   emptyIconCircle: { width: 80, height: 80, borderRadius: 40, justifyContent: 'center', alignItems: 'center', marginBottom: 16 }, 
   emptyText: { fontSize: 15, fontWeight: '500' },
