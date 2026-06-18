@@ -89,50 +89,59 @@ export default function ProfileScreen() {
         .filter(c => c.tipo !== 'RECEITA') 
         .sort((a, b) => (ordemTipo[a.tipo] || 99) - (ordemTipo[b.tipo] || 99));
 
+      // Lógica de Ordenação Inteligente
+      const sortParceladas = (a: any, b: any) => {
+        const restanteA = (a.installmentDetails?.total || 0) - (a.installmentDetails?.current || 0);
+        const restanteB = (b.installmentDetails?.total || 0) - (b.installmentDetails?.current || 0);
+        if (restanteA !== restanteB) return restanteA - restanteB; 
+        return new Date(b.paymentDate || b.date).getTime() - new Date(a.paymentDate || a.date).getTime();
+      };
+
+      const sortNaoParceladas = (a: any, b: any) => {
+        return new Date(b.paymentDate || b.date).getTime() - new Date(a.paymentDate || a.date).getTime();
+      };
+
       let html = `
         <html>
           <head>
             <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no" />
             <style>
-              body { font-family: Helvetica, Arial, sans-serif; padding: 20px; color: #1e293b; }
-              .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid ${colors.accent}; padding-bottom: 15px; }
-              h1 { color: ${colors.accent}; margin: 0; font-size: 24px; }
-              p.subtitle { color: #64748b; font-size: 14px; margin-top: 5px; }
-              .tabela-container { margin-bottom: 30px; page-break-inside: avoid; }
-              .tabela-titulo { background-color: #f1f5f9; padding: 10px 15px; border-radius: 6px; font-size: 16px; color: #0f172a; margin-bottom: 10px; border-left: 4px solid ${colors.accent}; }
-              table { width: 100%; border-collapse: collapse; font-size: 14px; }
-              th { background-color: #e2e8f0; color: #334155; padding: 10px; text-align: left; }
-              td { padding: 10px; border-bottom: 1px solid #e2e8f0; }
-              .valor { font-weight: bold; color: #ef4444; }
-              .total-tabela { text-align: right; padding: 10px; font-size: 14px; font-weight: bold; background-color: #f8fafc; border-top: 1px solid #e2e8f0; }
+              body { font-family: Helvetica, Arial, sans-serif; padding: 20px; color: #1e293b; background-color: #f8fafc; }
               
-              .totais-finais-container { margin-top: 40px; page-break-inside: avoid; }
-              .titulo-resumo { font-size: 18px; font-weight: bold; color: #0f172a; margin-bottom: 15px; text-align: center; }
-              .bloco-simples { display: flex; justify-content: space-between; padding: 15px 20px; border-radius: 8px; color: white; font-size: 16px; font-weight: bold; margin-bottom: 10px; }
+              .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid ${colors.accent}; padding-bottom: 15px; background-color: #fff; padding-top: 15px; border-radius: 12px; }
+              h1 { color: ${colors.accent}; margin: 0; font-size: 22px; text-transform: uppercase; }
+              p.subtitle { color: #64748b; font-size: 13px; margin-top: 5px; }
               
-              .bloco-comum { padding: 15px 20px; border-radius: 8px; color: white; margin-bottom: 10px; background-color: ${colors.accent}; }
-              .linha-total { display: flex; justify-content: space-between; font-size: 16px; font-weight: bold; }
-              .linha-divisao { display: flex; justify-content: space-between; font-size: 14px; margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.3); }
+              /* === COLUNAS === */
+              .duas-colunas {
+                column-count: 2;
+                column-gap: 20px;
+              }
               
-              .bg-individual { background-color: #8b5cf6; }
-              .bg-terceiros { background-color: #ec4899; }
+              .tabela-card { border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px; margin-bottom: 20px; background: #fff; page-break-inside: avoid; break-inside: avoid; -webkit-column-break-inside: avoid; }
+              .titulo-conta { font-size: 13px; font-weight: bold; margin-bottom: 8px; color: #475569; text-transform: uppercase; }
               
-              .vazio { font-style: italic; color: #94a3b8; text-align: center; padding: 10px; }
+              table { width: 100%; border-collapse: collapse; margin-top: 5px; }
+              th { text-align: left; font-size: 10px; color: #64748b; border-bottom: 1px solid #e2e8f0; padding: 6px; text-transform: uppercase; }
+              td { font-size: 11px; padding: 8px 6px; border-bottom: 1px solid #f1f5f9; }
+              
+              .valor { font-weight: 700; text-align: right; }
+              .total-conta { text-align: right; font-weight: bold; font-size: 13px; margin-top: 10px; color: #0f172a; }
+              
+              .resumo-card { background: #fff; border: 2px solid ${colors.accent}; border-radius: 12px; padding: 20px; margin-top: 30px; page-break-inside: avoid; clear: both; }
             </style>
           </head>
           <body>
             <div class="header">
               <h1>Relatório de Despesas</h1>
-              <p class="subtitle">Mês de Referência: ${mesFormatado}</p>
-              <p class="subtitle">Gerado por: ${emailLogado}</p>
+              <p class="subtitle">Mês de Referência: ${mesFormatado} &nbsp;|&nbsp; Gerado por: ${emailLogado}</p>
             </div>
+            
+            <div class="duas-colunas">
       `;
 
-      let totalComum = 0;
-      let totalMinhaParte = 0; 
-      let totalParteParceiro = 0; 
-      let totalIndividual = 0;
-      let totalTerceiros = 0;
+      let totalComum = 0; let totalMinhaParte = 0; let totalParteParceiro = 0;
+      let totalIndividual = 0; let totalTerceiros = 0;
       let temAlgumaDespesa = false;
 
       contasOrdenadas.forEach(conta => {
@@ -142,38 +151,44 @@ export default function ProfileScreen() {
         temAlgumaDespesa = true;
         let totalConta = 0;
 
+        // Separa as transações usando a lógica das abas do app
+        const parceladas = despesasDestaConta.filter(d => d.isInstallment).sort(sortParceladas);
+        const outras = despesasDestaConta.filter(d => !d.isInstallment).sort(sortNaoParceladas);
+
         html += `
-          <div class="tabela-container">
-            <div class="tabela-titulo"><strong>${conta.nome}</strong> <span style="font-size: 12px; color: #64748b;">(${conta.tipo})</span></div>
+          <div class="tabela-card">
+            <div class="titulo-conta">${conta.nome} <span style="font-size: 10px; font-weight: normal; color: #94a3b8;">(${conta.tipo})</span></div>
             <table>
-              <tr><th width="20%">Data</th><th width="40%">Descrição</th><th width="20%">Categoria</th><th width="20%" style="text-align: right;">Valor</th></tr>
+              <tr>
+                <th width="15%">Data</th>
+                <th width="50%">Descrição</th>
+                <th width="15%">Cat.</th>
+                <th width="20%" style="text-align:right">R$</th>
+              </tr>
         `;
 
-        despesasDestaConta.forEach(d => {
-          const vAmount = Number(d.amount) || 0;
-          const vDesc = d.descricao || '-';
-          const vCat = (d.tags && d.tags.length > 0) ? d.tags[0] : 'Outros';
-          const vDate = formatarDataParaPDF(d.paymentDate || d.date);
-          const isPago = d.isPaid === true;
+        const gerarLinha = (d: any) => {
+          const v = Number(d.amount) || 0;
+          totalConta += v;
+          return `<tr><td>${formatarDataParaPDF(d.paymentDate || d.date).substring(0, 5)}</td><td>${d.descricao} ${d.isPaid ? '✅' : '⏳'}</td><td>${d.tags?.[0] || '-'}</td><td class="valor">${v.toFixed(2).replace('.', ',')}</td></tr>`;
+        };
 
-          totalConta += vAmount;
-          
-          html += `
-            <tr>
-              <td>${vDate}</td>
-              <td>${vDesc} ${isPago ? '✅' : '⏳'}</td>
-              <td>${vCat}</td>
-              <td class="valor" style="text-align: right;">R$ ${vAmount.toFixed(2).replace('.', ',')}</td>
-            </tr>
-          `;
-        });
+        // 1. Renderiza Parceladas
+        parceladas.forEach(d => { html += gerarLinha(d); });
 
+        // 2. Separador visual
+        if (parceladas.length > 0 && outras.length > 0) {
+          html += `<tr><td colspan="4" style="border-bottom: 2px dashed #cbd5e1; padding: 2px;"></td></tr>`;
+        }
+
+        // 3. Renderiza Restantes (Únicas/Fixas)
+        outras.forEach(d => { html += gerarLinha(d); });
+
+        // Lógica de rateio
         if (conta.tipo === 'COMUM') {
           totalComum += totalConta;
-          
           const percThialisson = conta.splitRule?.me ?? 50;
           const percRayane = conta.splitRule?.spouse ?? (100 - percThialisson);
-          
           const valorThialisson = totalConta * (percThialisson / 100);
           const valorRayane = totalConta * (percRayane / 100);
           
@@ -184,40 +199,39 @@ export default function ProfileScreen() {
             totalMinhaParte += valorThialisson;
             totalParteParceiro += valorRayane;
           }
-          
         } else if (conta.tipo === 'INDIVIDUAL') {
           totalIndividual += totalConta;
         } else if (conta.tipo === 'TERCEIROS') {
           totalTerceiros += totalConta;
         }
 
-        html += `</table><div class="total-tabela">Total da Tabela: R$ ${totalConta.toFixed(2).replace('.', ',')}</div></div>`;
+        html += `</table><div class="total-conta">Total da Tabela: R$ ${totalConta.toFixed(2).replace('.', ',')}</div></div>`;
       });
 
       if (!temAlgumaDespesa) {
-        html += `<div class="vazio">Nenhuma despesa registrada para o mês de ${mesFormatado}.</div>`;
+        html += `</div><div style="font-style: italic; color: #94a3b8; text-align: center; padding: 20px;">Nenhuma despesa registrada para o mês de ${mesFormatado}.</div>`;
       } else {
         html += `
-          <div class="totais-finais-container">
-            <div class="titulo-resumo">RESUMO DO MÊS</div>
+          </div> <!-- FIM DAS DUAS COLUNAS -->
+          
+          <div class="resumo-card">
+            <div style="font-size: 16px; font-weight:bold; margin-bottom:15px; color: #0f172a; text-align: center; text-transform: uppercase;">Resumo Geral do Mês</div>
             
-            <div class="bloco-comum">
-              <div class="linha-total">
-                <span>TOTAL TABELAS COMUNS</span>
-                <span>R$ ${totalComum.toFixed(2).replace('.', ',')}</span>
-              </div>
-              <div class="linha-divisao">
-                <span>Minha Parte: R$ ${totalMinhaParte.toFixed(2).replace('.', ',')}</span>
-                <span>Parte de ${nomeDoParceiro}: R$ ${totalParteParceiro.toFixed(2).replace('.', ',')}</span>
-              </div>
+            <div style="margin-bottom: 10px; font-size: 14px; display: flex; justify-content: space-between; font-weight: bold; color: ${colors.accent};">
+              <span>TOTAL TABELAS COMUNS</span>
+              <span>R$ ${totalComum.toFixed(2).replace('.', ',')}</span>
             </div>
-
-            <div class="bloco-simples bg-individual">
+            <div style="margin-bottom: 15px; font-size: 12px; color: #475569; display: flex; justify-content: space-between; border-bottom: 1px solid #e2e8f0; padding-bottom: 15px;">
+              <span>Minha Parte: R$ ${totalMinhaParte.toFixed(2).replace('.', ',')}</span>
+              <span>Parte de ${nomeDoParceiro}: R$ ${totalParteParceiro.toFixed(2).replace('.', ',')}</span>
+            </div>
+            
+            <div style="margin-bottom: 10px; font-size: 14px; display: flex; justify-content: space-between; font-weight: bold; color: #0f172a;">
               <span>TOTAL TABELAS INDIVIDUAIS</span>
               <span>R$ ${totalIndividual.toFixed(2).replace('.', ',')}</span>
             </div>
             
-            <div class="bloco-simples bg-terceiros">
+            <div style="font-size: 14px; display: flex; justify-content: space-between; font-weight: bold; color: #0f172a;">
               <span>TOTAL TERCEIROS</span>
               <span>R$ ${totalTerceiros.toFixed(2).replace('.', ',')}</span>
             </div>
@@ -267,14 +281,13 @@ export default function ProfileScreen() {
         <Text style={[styles.sectionTitle, { color: colors.subText }]}>Relatórios</Text>
         <View style={[styles.menuGroup, { backgroundColor: colors.card, padding: 20, borderColor: isDarkMode ? '#334155' : 'transparent', borderWidth: isDarkMode ? 1 : 0 }]}>
           
-          {/* Seletor de Mês (Trazendo ele de volta!) */}
+          {/* Seletor de Mês */}
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: isDarkMode ? '#0f172a' : '#f8fafc', padding: 6, borderRadius: 30, marginBottom: 20, borderWidth: 1, borderColor: isDarkMode ? '#334155' : '#e2e8f0' }}>
             <TouchableOpacity onPress={irMesAnterior} style={{ padding: 10, backgroundColor: colors.accentLight, borderRadius: 24 }}><Ionicons name="chevron-back" size={16} color={colors.accent} /></TouchableOpacity>
             <Text style={{ fontSize: 15, fontWeight: 'bold', color: colors.text }}>{mesFormatado}</Text>
             <TouchableOpacity onPress={irProximoMes} style={{ padding: 10, backgroundColor: colors.accentLight, borderRadius: 24 }}><Ionicons name="chevron-forward" size={16} color={colors.accent} /></TouchableOpacity>
           </View>
 
-          {/* O NOVO botão de Exportar */}
           <ExportPDFButton isExporting={isExporting} onPress={exportarPDF} />
           
         </View>
